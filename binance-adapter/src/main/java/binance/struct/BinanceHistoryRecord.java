@@ -3,12 +3,13 @@ package binance.struct;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
 import lombok.Data;
 
 @Data
-public class BinanceHistoryRecord {
+public class BinanceHistoryRecord implements Comparable<BinanceHistoryRecord>{
     private String userId;
     private LocalDateTime utcTime;
     private String account;
@@ -16,6 +17,10 @@ public class BinanceHistoryRecord {
     private String coin;
     private BigDecimal change;
     private String remark;
+    
+    
+	private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
 	public String getUserId() {
 		return userId;
 	}
@@ -79,6 +84,31 @@ public class BinanceHistoryRecord {
 	@Override
 	public String toString() {
 		return "BinanceHistoryRecord [utcTime=" + utcTime + ", operation=" + operation + ", coin=" + coin + ", change=" + change +"]";
+	}
+	public String[] toCsvRecord() {
+		 return new String[] {
+			        userId, 
+			        formatter.format(utcTime),
+			        account,
+			        operation.getDisplayName(),
+			        coin,
+			        change.toString(),
+			        remark
+			    };		
+	}
+	@Override
+	public int compareTo(BinanceHistoryRecord o) {
+		int delta = this.getUtcTime().compareTo(o.utcTime);
+		if(delta == 0) {
+			delta = this.getOperation().compareTo(o.getOperation());
+		}
+		if(delta == 0) {
+			delta = o.change.compareTo(this.change);
+		}
+		return delta;
+	}
+	public boolean isMarginAccount() {
+		return getAccount().contains("Margin");
 	}
     
     
