@@ -181,7 +181,6 @@ public class Position {
 			transfersOut.add(binanceHistoryRecord);
 		}
 
-		boolean doClose = true;
 		Map<String,List<BinanceHistoryRecord>> myCoinIn = transfersIn.stream().collect(Collectors.groupingBy(l -> l.getCoin()));
 		Map<String,List<BinanceHistoryRecord>> myCoinOut = transfersOut.stream().collect(Collectors.groupingBy(l -> l.getCoin()));
 		Map<String,List<BinanceHistoryRecord>> loansByCoin = loans.stream().collect(Collectors.groupingBy(l -> l.getCoin()));
@@ -218,26 +217,38 @@ public class Position {
 			}
 			totalRepayedByCoin.put(e.getKey(), total);
 		});
-
-		for(Entry<String, BigDecimal> e : totalLoanedByCoin.entrySet()) {
-			BigDecimal myInAmount = totalInByCoin.get(e.getKey());
+		
+		boolean doClose = true;
+		for(Entry<String, BigDecimal> e : totalInByCoin.entrySet()) {
+			BigDecimal myInAmount = e.getValue();
 			BigDecimal myOutAmount = totalOutByCoin.get(e.getKey());
-			BigDecimal loanedAmount = e.getValue();
-			BigDecimal repayedAmount = totalRepayedByCoin.get(e.getKey());
-			BigDecimal remainingToRepay = loanedAmount.add(repayedAmount);
-			if(remainingToRepay.compareTo(BigDecimal.ZERO)<=0) {
-				BigDecimal interestPayed = remainingToRepay.negate();
-				//TODO aggiunti transazione interesse
-
-				//Ora controllo se posso chiudere
-				if(myInAmount!=null) {
-					BigDecimal checkCloseAmount = myInAmount.add(myOutAmount).subtract(interestPayed);
-					if(!checkCloseAmount.equals(BigDecimal.ZERO)) {
-						doClose=false;
-					}
+			BigDecimal loanedAmount = totalLoanedByCoin.get(e.getKey());
+			
+			BigDecimal remainingToRepay = BigDecimal.ZERO;
+			if(loanedAmount!=null) {
+				remainingToRepay = loanedAmount;
+				BigDecimal repayedAmount = totalRepayedByCoin.get(e.getKey());				
+				if(repayedAmount!=null) {
+					remainingToRepay.add(repayedAmount);
 				}
-			}else {
-				doClose=false;
+			}
+			
+			BigDecimal interestPayed = BigDecimal.ZERO;
+			if(remainingToRepay.compareTo(BigDecimal.ZERO)<0) {
+				interestPayed = remainingToRepay.negate();
+				//TODO aggiunti transazione interesse
+			}
+			
+			//Ora controllo se posso chiudere
+			if(myInAmount!=null) {
+				BigDecimal checkCloseAmount = myInAmount;
+				if(myOutAmount!=null) {
+					checkCloseAmount = checkCloseAmount.add(myOutAmount);	
+				}
+				checkCloseAmount = checkCloseAmount.subtract(interestPayed);
+				if(!checkCloseAmount.equals(BigDecimal.ZERO)) {
+					doClose=false;
+				}
 			}
 		}			
 		return doClose ? ADD_TRANSFER_RESULT.OK_AND_CLOSE : ADD_TRANSFER_RESULT.OK;
