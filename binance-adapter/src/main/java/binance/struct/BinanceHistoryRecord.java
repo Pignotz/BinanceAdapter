@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
+import binance.model.account.AccountType;
 import lombok.Data;
 
 @Data
@@ -100,15 +101,38 @@ public class BinanceHistoryRecord implements Comparable<BinanceHistoryRecord>{
 	public int compareTo(BinanceHistoryRecord o) {
 		int delta = this.getUtcTime().compareTo(o.utcTime);
 		if(delta == 0) {
-			delta = this.getOperation().compareTo(o.getOperation());
+			if(this.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT)) {
+				if(this.getChange().compareTo(BigDecimal.ZERO)>0) {
+					delta = o.getOperation().isLoan() ? 1 : -1;
+				} else {
+					delta = 1;
+				}
+			}else if (o.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT)) {
+				if(o.getChange().compareTo(BigDecimal.ZERO)>0) {
+					delta = this.getOperation().isRepayment() ? 1 : -1;
+				} else {
+					delta = 1;
+				}
+			} else {
+				delta = this.getOperation().compareTo(o.getOperation());
+			}
 		}
 		if(delta == 0) {
-			delta = o.change.compareTo(this.change);
+			delta = this.change.compareTo(o.change);
 		}
 		return delta;
 	}
 	public boolean isMarginAccount() {
 		return getAccount().contains("Margin");
+	}
+	public AccountType getAccountType() {
+		return AccountType.getAccountType(this.getAccount());
+	}
+	public boolean isLoanOperation() {
+		return getOperation().isLoan();
+	}
+	public boolean isTransferAccountOperation() {
+		return getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT);
 	}
     
     

@@ -4,7 +4,7 @@ public enum BinanceOperationType {
 
     FIAT_DEPOSIT("Fiat Deposit",TataxOperationType.DEPOSIT, false),
    
-    TRANSFER_ACCOUNT("Transfer Between Main Account/Futures and Margin Account",TataxOperationType.IGNORE, true),
+    TRANSFER_ACCOUNT("Transfer Between Main Account/Futures and Margin Account",TataxOperationType.DECIDE_BASED_ON_AMOUNT, true),
     
     MARGIN_LOAN("Margin Loan",TataxOperationType.CREDIT,true),
     ISOLATED_MARGIN_LOAN("Isolated Margin Loan",TataxOperationType.CREDIT,true),
@@ -15,11 +15,12 @@ public enum BinanceOperationType {
     TRANSACTION_BUY("Transaction Buy",TataxOperationType.DECIDE_BASED_ON_AMOUNT,true),
     TRANSACTION_REVENUE("Transaction Revenue",TataxOperationType.CREDIT,true),   
 
+    CROSS_MARGIN_LIQUIDATION_SMALL_ASSET_TAKEOVER("Cross Margin Liquidation - Small Assets Takeover",TataxOperationType.DECIDE_BASED_ON_AMOUNT,true),
+    ISOLATED_MARGIN_LIQUIDATION_FEE("Isolated Margin Liquidation - Fee", TataxOperationType.EXCHANGE_FEE,true),
+
     MARGIN_REPAYMENT("Margin Repayment",TataxOperationType.DEBIT,true),
     ISOLATED_MARGIN_REPAYMENT("Isolated Margin Repayment",TataxOperationType.DEBIT,true),
 
-    CROSS_MARGIN_LIQUIDATION_SMALL_ASSET_TAKEOVER("Cross Margin Liquidation - Small Assets Takeover",TataxOperationType.DECIDE_BASED_ON_AMOUNT,true),
-    ISOLATED_MARGIN_LIQUIDATION_FEE("Isolated Margin Liquidation - Fee", TataxOperationType.EXCHANGE_FEE,true),
 
     
     
@@ -86,4 +87,15 @@ public enum BinanceOperationType {
         }
         throw new IllegalArgumentException("Unknown display name: " + displayName);
     }
+
+
+	public boolean isRepayment() {
+		return this.equals(MARGIN_REPAYMENT) || this.equals(ISOLATED_MARGIN_REPAYMENT);
+	}
+
+
+	boolean isLoan() {
+		return this.equals(MARGIN_LOAN) || this.equals(ISOLATED_MARGIN_LOAN);
+
+	}
 }
