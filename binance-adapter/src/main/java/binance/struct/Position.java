@@ -1,4 +1,4 @@
-package binance.model.account.margin;
+package binance.struct;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -12,8 +12,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import binance.job.steps.ComputePlusMinusStepConfig;
-import binance.struct.BinanceHistoryRecord;
-import binance.struct.BinanceOperationType;
 
 public class Position {
 

@@ -1,12 +1,10 @@
-package binance.model.account.margin;
+package binance.struct;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
-import binance.struct.BinanceHistoryRecord;
-
-public class Operation {
+public class Operation implements UtcTimedRecordWithMovement{
 		private LocalDateTime utcTime;
 		private String coinBought;
 		private String coinSold;
@@ -35,7 +33,7 @@ public class Operation {
 			}
 		}
 		public void computePrice() {
-			priceOfBoughtCoin = amountSold.negate().divide(amountBought,8, RoundingMode.CEILING);
+			priceOfBoughtCoin = amountSold.negate().divide(amountBought,8, RoundingMode.HALF_UP);
 		}
 		public LocalDateTime getUtcTime() {
 			return utcTime;
@@ -90,6 +88,26 @@ public class Operation {
 		}
 		public void setBoughtIsBase(boolean boughtIsBase) {
 			this.boughtIsBase = boughtIsBase;
+		}
+		@Override
+		public String getInCoin() {
+			return coinBought;
+		}
+		@Override
+		public String getOutCoin() {
+			return coinSold;
+		}
+		@Override
+		public BigDecimal getInAmount() {
+			return getAmountBought();
+		}
+		@Override
+		public BigDecimal getOutAmount() {
+			return getAmountSold();
+		}
+		@Override
+		public boolean isSwap() {
+			return true;
 		}
 		
 		

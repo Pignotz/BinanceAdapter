@@ -10,7 +10,7 @@ import binance.model.account.AccountType;
 import lombok.Data;
 
 @Data
-public class BinanceHistoryRecord implements Comparable<BinanceHistoryRecord>{
+public class BinanceHistoryRecord implements Comparable<BinanceHistoryRecord>, UtcTimedRecordWithMovement{
     private String userId;
     private LocalDateTime utcTime;
     private String account;
@@ -133,6 +133,38 @@ public class BinanceHistoryRecord implements Comparable<BinanceHistoryRecord>{
 	}
 	public boolean isTransferAccountOperation() {
 		return getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT);
+	}
+	@Override
+	public String getInCoin() {
+		if(change.compareTo(BigDecimal.ZERO)>=0) {
+			return getCoin();
+		}
+		return null;
+	}
+	@Override
+	public String getOutCoin() {
+		if(change.compareTo(BigDecimal.ZERO)<0) {
+			return getCoin();
+		}
+		return null;
+	}
+	@Override
+	public BigDecimal getInAmount() {
+		if(change.compareTo(BigDecimal.ZERO)>=0) {
+			return getChange();
+		}
+		return null;
+	}
+	@Override
+	public BigDecimal getOutAmount() {
+		if(change.compareTo(BigDecimal.ZERO)<0) {
+			return getChange();
+		}		
+		return null;
+	}
+	@Override
+	public boolean isSwap() {
+		return false;
 	}
     
     
