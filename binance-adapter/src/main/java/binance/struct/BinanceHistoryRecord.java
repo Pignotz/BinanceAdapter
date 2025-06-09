@@ -19,6 +19,8 @@ public class BinanceHistoryRecord implements Comparable<BinanceHistoryRecord>, U
     private BigDecimal change;
     private String remark;
     
+    public BinanceHistoryRecord() {}
+    
     
 	private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 

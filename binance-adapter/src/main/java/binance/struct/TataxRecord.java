@@ -20,6 +20,14 @@ public class TataxRecord {
 
 
 	private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+	public TataxRecord() {};
+	public TataxRecord(LocalDateTime timeStamp, String symbol, BigDecimal quantity, TataxOperationType tataxOperationType) {
+		this.timeStamp=timeStamp;
+		this.symbol = symbol;
+		this.quantity = quantity;
+		this.movementType = tataxOperationType;
+	}
 	
 	public TataxRecord(BinanceHistoryRecord binanceHistoryRecord) {
 		this.symbol=binanceHistoryRecord.getCoin();

@@ -109,9 +109,9 @@ public class AggregateAssignStepConfig {
 								throw new RuntimeException("failed to identify account for transaction: "+r);
 							}
 						});
-						spotAccount.verifyCoherence();
-						crossMarginAccount.verifyCoherence();
-						isolatedMarginAccount.verifyCoherence();
+						spotAccount.verifyTransactionCoherence();
+						crossMarginAccount.verifyTransactionCoherence();
+						isolatedMarginAccount.verifyTransactionCoherence();
 						return null;
 					}
 				},platformTransactionManager).build();

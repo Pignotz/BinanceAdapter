@@ -13,7 +13,6 @@ public class Operation implements UtcTimedRecordWithMovement{
 		private BigDecimal amountSold;
 		private BigDecimal amountFee;
 
-		private BigDecimal priceOfBoughtCoin;
 
 		private Boolean boughtIsBase;
 		public Operation(BinanceHistoryRecord binanceHistoryRecord) {
@@ -32,9 +31,7 @@ public class Operation implements UtcTimedRecordWithMovement{
 				throw new IllegalArgumentException("Unexpected operation type for: " + binanceHistoryRecord);
 			}
 		}
-		public void computePrice() {
-			priceOfBoughtCoin = amountSold.negate().divide(amountBought,8, RoundingMode.HALF_UP);
-		}
+
 		public LocalDateTime getUtcTime() {
 			return utcTime;
 		}
@@ -78,11 +75,9 @@ public class Operation implements UtcTimedRecordWithMovement{
 			this.amountFee = amountFee;
 		}
 		public BigDecimal getPriceOfBoughtCoin() {
-			return priceOfBoughtCoin;
+			return amountSold.negate().divide(amountBought,8, RoundingMode.HALF_UP);
 		}
-		public void setPriceOfBoughtCoin(BigDecimal priceOfBoughtCoin) {
-			this.priceOfBoughtCoin = priceOfBoughtCoin;
-		}
+
 		public boolean isBoughtIsBase() {
 			return boughtIsBase;
 		}

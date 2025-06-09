@@ -34,7 +34,7 @@ public class Account {
 		records.add(r);
 	}
 	
-	public void verifyCoherence() throws Exception {
+	public void verifyTransactionCoherence() throws Exception {
 
 		Map<String,List<BinanceHistoryRecord>> binanceHistoryRecordsPerCoin =  records.stream().collect(Collectors.groupingBy(e -> e.getCoin()));
 		binanceHistoryRecordsPerCoin.values().forEach(list -> Collections.sort(list, 

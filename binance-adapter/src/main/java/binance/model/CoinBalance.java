@@ -1,40 +1,41 @@
 package binance.model;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Stack;
+import java.util.List;
 
 public class CoinBalance {
 
 	
 	private String coin;
-	private Stack<CoinBalanceEntry> balanceHistory;
+	private List<CoinBalanceEntry> balanceHistory;
 	
 	public CoinBalance(String coin) {
 		this.coin=coin;
-		this.balanceHistory = new Stack<CoinBalance.CoinBalanceEntry>();
+		this.balanceHistory = new ArrayList<CoinBalance.CoinBalanceEntry>();
 	}
 	
 	
-	public addCoinBalanceEntry(String coin, BigDecimal amount, String counterValueCoin, BigDecimal counterValueAmount) {
-		
-	}
-	
-	
-	
-	
+	public void addCoinBalanceEntry(String coin, BigDecimal amount, String counterValueCoin, BigDecimal counterValueAmount) {
+
+	}	
 	
 	public static class CoinBalanceEntry {
 		private final String coin;
-		private final BigDecimal amount;
+		private BigDecimal amount;
 		private final String counterValueCoin;
-		private final BigDecimal counterValueAmount;
+		private BigDecimal counterValueAmount;
 		
+		private BigDecimal priceOfCoin;
 		public CoinBalanceEntry(String coin, BigDecimal amount, String counterValueCoin, BigDecimal counterValueAmount) {
 			this.coin=coin;
 			this.amount = amount;
 			this.counterValueCoin=counterValueCoin;
 			this.counterValueAmount=counterValueAmount;
+			if(this.counterValueAmount.compareTo(BigDecimal.ZERO)<0 || this.amount.compareTo(BigDecimal.ZERO)< 0) {
+				throw new RuntimeException("Error here we always want positive values");
+			}
 		}
 
 		public String getCoin() {
@@ -52,8 +53,44 @@ public class CoinBalance {
 		public BigDecimal getCounterValueAmount() {
 			return counterValueAmount;
 		}
+
+		public BigDecimal getPriceOfIncomeCoin() {
+			BigDecimal price = counterValueAmount.divide(amount,8, RoundingMode.HALF_UP);
+			if(priceOfCoin==null) {
+				priceOfCoin = price;
+			}else {
+				if(priceOfCoin.compareTo(price)!=0) {
+					throw new RuntimeException();
+				}
+			}
+			return priceOfCoin;
+		}
+
+		public void setAmount(BigDecimal amount) {
+			this.amount = amount;
+		}
+
+		public void setCounterValueAmount(BigDecimal counterValueAmount) {
+			this.counterValueAmount = counterValueAmount;
+		}		
 		
 		
 	}
+
+
+
+
+	public List<CoinBalanceEntry> getBalanceHistory() {
+		return balanceHistory;
+	}
+
+
+	public void setBalanceHistory(List<CoinBalanceEntry> balanceHistory) {
+		this.balanceHistory = balanceHistory;
+	}
+
+
+
+	
 	
 }
