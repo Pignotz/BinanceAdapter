@@ -160,6 +160,24 @@ public class ReadStepConfig {
 				// Setting the BigDecimal value on the record
 				record.setChange(change);
 				record.setRemark(fieldSet.readString("remark"));
+				
+				//Validazione alcune volte l'operation type non corrisponde alla direzione del movimento
+				if(record.getOperation().equals(BinanceOperationType.TRANSACTION_SOLD) && change.compareTo(BigDecimal.ZERO)>0) {
+					logger.warn("BinanceOperationType changed from {} to {} due to inchoerence between type and change - original record {}",BinanceOperationType.TRANSACTION_SOLD, BinanceOperationType.TRANSACTION_BUY,record);
+					record.setOperation(BinanceOperationType.TRANSACTION_BUY);
+				}
+				if(record.getOperation().equals(BinanceOperationType.TRANSACTION_BUY) && change.compareTo(BigDecimal.ZERO)<0) {
+					logger.warn("BinanceOperationType changed from {} to {} due to inchoerence between type and change - original record {}",BinanceOperationType.TRANSACTION_BUY, BinanceOperationType.TRANSACTION_SOLD,record);
+					record.setOperation(BinanceOperationType.TRANSACTION_SOLD);
+				}
+				if(record.getOperation().equals(BinanceOperationType.TRANSACTION_SPEND) && change.compareTo(BigDecimal.ZERO)>0) {
+					logger.warn("BinanceOperationType changed from {} to {} due to inchoerence between type and change - original record {}",BinanceOperationType.TRANSACTION_SPEND, BinanceOperationType.TRANSACTION_REVENUE,record);
+					record.setOperation(BinanceOperationType.TRANSACTION_REVENUE);
+				}
+				if(record.getOperation().equals(BinanceOperationType.TRANSACTION_REVENUE) && change.compareTo(BigDecimal.ZERO)<0) {
+					logger.warn("BinanceOperationType changed from {} to {} due to inchoerence between type and change - original record {}",BinanceOperationType.TRANSACTION_REVENUE, BinanceOperationType.TRANSACTION_SPEND,record);
+					record.setOperation(BinanceOperationType.TRANSACTION_SPEND);
+				}
 				return record;
 			}
 		};

@@ -60,12 +60,18 @@ public class Operation implements UtcTimedRecordWithMovement{
 			return amountBought;
 		}
 		public void setAmountBought(BigDecimal amountBought) {
+			if(amountBought.compareTo(BigDecimal.ZERO)<0) {
+				throw new RuntimeException();
+			}
 			this.amountBought = amountBought;
 		}
 		public BigDecimal getAmountSold() {
 			return amountSold;
 		}
 		public void setAmountSold(BigDecimal amountSold) {
+			if(amountSold.compareTo(BigDecimal.ZERO)>0) {
+				throw new RuntimeException();
+			}
 			this.amountSold = amountSold;
 		}
 		public BigDecimal getAmountFee() {
@@ -74,8 +80,8 @@ public class Operation implements UtcTimedRecordWithMovement{
 		public void setAmountFee(BigDecimal amountFee) {
 			this.amountFee = amountFee;
 		}
-		public BigDecimal getPriceOfBoughtCoin() {
-			return amountSold.negate().divide(amountBought,8, RoundingMode.HALF_UP);
+		public BigDecimal getPriceOfSoldCoin() {
+			return amountBought.negate().divide(amountSold,8, RoundingMode.HALF_UP);
 		}
 
 		public boolean isBoughtIsBase() {
@@ -103,6 +109,11 @@ public class Operation implements UtcTimedRecordWithMovement{
 		@Override
 		public boolean isSwap() {
 			return true;
+		}
+
+		@Override
+		public String toString() {
+			return getAmountBought() + " " + getCoinBought() + " for " + getAmountSold() + " " + getCoinSold();
 		}
 		
 		

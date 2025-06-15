@@ -25,8 +25,6 @@ public abstract class MarginAccount extends Account {
 
 	protected List<BinanceHistoryRecord> recordsForTatax;
 
-	protected Map<String,BigDecimal> balanceIncludingLoans = new HashMap<String, BigDecimal>();
-	protected Map<String,BigDecimal> balanceExcludingLoans = new HashMap<String, BigDecimal>();
 	protected Map<String,BigDecimal> balanceAvailableLoans = new HashMap<String, BigDecimal>();
 	
 	public MarginAccount(AccountType accountType, Logger logger) {
@@ -51,6 +49,7 @@ public abstract class MarginAccount extends Account {
 		Operation op = null;
 		Operation liquidationOp = null;
 		for (BinanceHistoryRecord binanceHistoryRecord : wrkBinanceHistoryRecords) {
+			logger.info(binanceHistoryRecord);
 			String coin = binanceHistoryRecord.getCoin();
 			BigDecimal change = binanceHistoryRecord.getChange();
 			switch (binanceHistoryRecord.getOperation()) {
@@ -125,12 +124,12 @@ public abstract class MarginAccount extends Account {
 
 		for (int i = 0; i < movements.size(); i++) {
 			UtcTimedRecordWithMovement movement = movements.get(i);
+			logger.info(movement);
 			if(!movement.isSwap()) {
 				BinanceHistoryRecord bhr = (BinanceHistoryRecord) movement;
 				String coin = bhr.getCoin();
-				if(!balanceExcludingLoans.containsKey(coin)) {
-					balanceExcludingLoans.put(coin, BigDecimal.ZERO);
-					balanceIncludingLoans.put(coin, BigDecimal.ZERO);
+				if(!balanceAvailableLoans.containsKey(coin)) {
+					
 					balanceAvailableLoans.put(coin, BigDecimal.ZERO);
 					pricedCoinBalances.put(coin, new CoinBalance(coin));
 				}
@@ -138,44 +137,39 @@ public abstract class MarginAccount extends Account {
 				switch (bhr.getOperation()) {
 				case TRANSFER_ACCOUNT:
 					recordsForTatax.add(bhr);
-					balanceIncludingLoans.put(coin, change.add(balanceIncludingLoans.get(coin)));
-					balanceExcludingLoans.put(coin, change.add(balanceExcludingLoans.get(coin)));
+				
 					break;
 				case ISOLATED_MARGIN_LOAN, 
 				MARGIN_LOAN:
-					balanceIncludingLoans.put(coin, change.add(balanceIncludingLoans.get(coin)));
 				balanceAvailableLoans.put(coin, change.add(balanceAvailableLoans.get(coin)));		
 				break;
 				case TRANSACTION_FEE:
 					break;
 				case ISOLATED_MARGIN_REPAYMENT, 
 				MARGIN_REPAYMENT:
-					balanceIncludingLoans.put(coin, change.add(balanceIncludingLoans.get(coin)));
+				
 				break;
 				case BNB_FEE_DEDUCTION:
-					balanceIncludingLoans.put(coin, change.add(balanceIncludingLoans.get(coin)));
-					balanceExcludingLoans.put(coin, change.add(balanceExcludingLoans.get(coin)));
+					
 					break;
 				case ISOLATED_MARGIN_LIQUIDATION_FEE:
-					balanceIncludingLoans.put(coin, change.add(balanceIncludingLoans.get(coin)));
-					balanceExcludingLoans.put(coin, change.add(balanceExcludingLoans.get(coin)));
+				
 					break;
 				default:
 					throw new RuntimeException("Unmanaged Case " + bhr.getOperation());
 				}
-			}else {
+			} else {
 				Operation o = (Operation) movement;
 				String coinBought = o.getCoinBought(); //i.e. BTC
 				String coinSold = o.getCoinSold(); //i.e. USDC
 				
-				if(!balanceExcludingLoans.containsKey(coinBought)) {
-					balanceExcludingLoans.put(coinBought, BigDecimal.ZERO);
-					balanceIncludingLoans.put(coinBought, BigDecimal.ZERO);
+				if(!balanceAvailableLoans.containsKey(coinBought)) {
+				
 					balanceAvailableLoans.put(coinBought, BigDecimal.ZERO);
 					pricedCoinBalances.put(coinBought, new CoinBalance(coinBought));
 				}
 				
-				BigDecimal boughtCoinPrice = o.getPriceOfBoughtCoin(); //i.e. quanti USDC per 1 BTC?
+				BigDecimal soldCoinPrice = o.getPriceOfSoldCoin(); //i.e. quanti USDC per 1 BTC?
 				BigDecimal amountSold = o.getAmountSold(); //i.e. quanti USDC Venduti?
 				
 				BigDecimal amountAvailableFromLoans = balanceAvailableLoans.get(coinSold);
@@ -209,11 +203,11 @@ public abstract class MarginAccount extends Account {
 							} else {
 								coinBalanceHistoryIterator.remove(); //Lo scambierò tutto
 							}
-							if(previousTradePrice.compareTo(boughtCoinPrice)>=0) {
+							if(previousTradePrice.compareTo(soldCoinPrice)>=0) {
 								// allora quando avevo venduto i.e. 1 BTC li avevo venduti ad un prezzo più alto di quello a cui li sto ricomprando ora
 								//Quindi dovrei realizzare un profit //TODO Verify!!!
 								
-							}else {
+							} else {
 								// allora quando avevo venduto i.e. 1 BTC li avevo venduti ad un prezzo più basso di quello a cui li sto ricomprando ora
 								//Quindi dovrei realizzare un loss //TODO Verify!!!
 							}
@@ -226,24 +220,20 @@ public abstract class MarginAccount extends Account {
 					if(myCoinAmountSold.compareTo(BigDecimal.ZERO)<0) throw new RuntimeException();
 					if(myCoinAmountSold.compareTo(BigDecimal.ZERO)>0) {
 						TataxRecord debitRecordForTatax = new TataxRecord(o.getUtcTime(), o.getCoinSold(), myCoinAmountSold, TataxOperationType.DEBIT);
-						balanceIncludingLoans.put(o.getCoinSold(), balanceIncludingLoans.get(o.getCoinSold()).subtract(myCoinAmountSold));
-						balanceExcludingLoans.put(o.getCoinSold(), balanceExcludingLoans.get(o.getCoinSold()).subtract(myCoinAmountSold));
 						
 						//TODO Verify
-						BigDecimal creditAmount = myCoinAmountSold.divide(boughtCoinPrice,8, RoundingMode.HALF_UP);
+						BigDecimal creditAmount = myCoinAmountSold.divide(soldCoinPrice,8, RoundingMode.HALF_UP);
 						TataxRecord creditRecordForTatax = new TataxRecord(o.getUtcTime(), o.getCoinBought(), creditAmount, TataxOperationType.CREDIT);					
-						balanceIncludingLoans.put(o.getCoinBought(), balanceIncludingLoans.get(o.getCoinBought()).add(creditAmount));
-						balanceExcludingLoans.put(o.getCoinBought(), balanceExcludingLoans.get(o.getCoinBought()).add(creditAmount));
+					
 					}
 				} else {
 					actualAmountFromLoansSold = amountSold.negate();
 				}
-				BigDecimal actualAmountBoughtUsingLoans = actualAmountFromLoansSold.multiply(nonLoanedCoinSold); //TODO VERIFICA SUBITO
+				BigDecimal actualAmountBoughtUsingLoans = actualAmountFromLoansSold.multiply(soldCoinPrice); //TODO VERIFICA SUBITO
+				balanceAvailableLoans.put(coinSold, actualAmountFromLoansSold.add(balanceAvailableLoans.get(coinSold)));		
+
 				pricedCoinBalances.get(coinBought).addCoinBalanceEntry(coinBought, actualAmountBoughtUsingLoans, coinSold, actualAmountFromLoansSold);
-				balanceIncludingLoans.put(coinBought, balanceIncludingLoans.get(coinBought).add(actualAmountBoughtUsingLoans));
 				
-				balanceIncludingLoans.put(coinSold, balanceIncludingLoans.get(coinBought).subtract(actualAmountFromLoansSold));
-				balanceAvailableLoans.put(coinSold, balanceAvailableLoans.get(coinSold).add(actualAmountBoughtUsingLoans));
 			}
 			//CoherenceChecks
 			checkBalances();	
@@ -252,20 +242,10 @@ public abstract class MarginAccount extends Account {
 
 
 	private void checkBalances() {
-		balanceIncludingLoans.entrySet().stream().forEach(e -> {
-			if(e.getValue().compareTo(BigDecimal.ZERO)<0) {
-				throw new RuntimeException("Balance for coin " + e.getKey() + " became less then zero for balanceExcludingLoans");
-			}
-		});
-
-		balanceExcludingLoans.entrySet().stream().forEach(e -> {
-			if(e.getValue().compareTo(BigDecimal.ZERO)<0) {
-				throw new RuntimeException("Balance for coin " + e.getKey() + " became less then zero for balanceExcludingLoans");
-			}
-		});
 		balanceAvailableLoans.entrySet().stream().forEach(e -> {
+			logger.debug("balanceAvailableLoans for {}: {}",e.getKey(), e.getValue());
 			if(e.getValue().compareTo(BigDecimal.ZERO)<0) {
-				throw new RuntimeException("Balance for coin " + e.getKey() + " became less then zero for balanceExcludingLoans");
+				throw new RuntimeException("Balance for coin " + e.getKey() + " is " +e.getValue() +" - error LESS than ZERO balanceAvailableLoans");
 			}
 		});
 	}

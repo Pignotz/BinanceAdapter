@@ -74,7 +74,7 @@ public class BinanceHistoryJobConfig {
 				.next(aggregateAndAssignToAccountsStepConfig.getAggregateAndAssignToAccountStep())
 				.next(computePlusMinusStepConfig.getComputePlusMinusStep())
 				.next(adaptAndWriteStep())
-				.next(computeMarginPlusMinus())
+				//.next(computeMarginPlusMinus())
 				.build();
 	}
 

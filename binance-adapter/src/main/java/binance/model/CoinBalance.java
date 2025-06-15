@@ -19,6 +19,8 @@ public class CoinBalance {
 	
 	public void addCoinBalanceEntry(String coin, BigDecimal amount, String counterValueCoin, BigDecimal counterValueAmount) {
 
+		balanceHistory.add(new CoinBalanceEntry(coin, amount, counterValueCoin, counterValueAmount));
+		
 	}	
 	
 	public static class CoinBalanceEntry {
@@ -72,7 +74,14 @@ public class CoinBalance {
 
 		public void setCounterValueAmount(BigDecimal counterValueAmount) {
 			this.counterValueAmount = counterValueAmount;
+		}
+
+		@Override
+		public String toString() {
+			return "CoinBalanceEntry bought "+ getAmount() + " " + getCoin() + " for " + getCounterValueAmount() + " " + getCounterValueCoin();
 		}		
+		
+		
 		
 		
 	}
