@@ -9,10 +9,10 @@ public enum BinanceOperationType {
     MARGIN_LOAN("Margin Loan",TataxOperationType.CREDIT,true),
     ISOLATED_MARGIN_LOAN("Isolated Margin Loan",TataxOperationType.CREDIT,true),
 
-    TRANSACTION_SPEND("Transaction Spend",TataxOperationType.DECIDE_BASED_ON_AMOUNT,true),
+    TRANSACTION_SPEND("Transaction Spend",TataxOperationType.DEBIT,true),
     TRANSACTION_SOLD("Transaction Sold",TataxOperationType.DEBIT,true),
     TRANSACTION_FEE("Transaction Fee",TataxOperationType.EXCHANGE_FEE,true),
-    TRANSACTION_BUY("Transaction Buy",TataxOperationType.DECIDE_BASED_ON_AMOUNT,true),
+    TRANSACTION_BUY("Transaction Buy",TataxOperationType.CREDIT,true),
     TRANSACTION_REVENUE("Transaction Revenue",TataxOperationType.CREDIT,true),   
 
     CROSS_MARGIN_LIQUIDATION_SMALL_ASSET_TAKEOVER("Cross Margin Liquidation - Small Assets Takeover",TataxOperationType.DECIDE_BASED_ON_AMOUNT,true),

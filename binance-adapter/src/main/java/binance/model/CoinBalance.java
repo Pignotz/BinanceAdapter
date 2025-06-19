@@ -57,7 +57,7 @@ public class CoinBalance {
 		}
 
 		public BigDecimal getPriceOfIncomeCoin() {
-			BigDecimal price = counterValueAmount.divide(amount,8, RoundingMode.HALF_UP);
+			BigDecimal price = counterValueAmount.divide(amount,16, RoundingMode.HALF_UP);
 			if(priceOfCoin==null) {
 				priceOfCoin = price;
 			}else {

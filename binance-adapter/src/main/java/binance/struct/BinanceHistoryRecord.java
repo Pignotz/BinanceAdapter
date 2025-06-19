@@ -21,6 +21,18 @@ public class BinanceHistoryRecord implements Comparable<BinanceHistoryRecord>, U
     
     public BinanceHistoryRecord() {}
     
+    public BinanceHistoryRecord(String userId, LocalDateTime utcTime, String account, BinanceOperationType operation, String coin, BigDecimal change, String remark) {
+    	this.userId=userId;
+    	this.utcTime=utcTime;
+    	this.account=account;
+    	this.operation = operation;
+    	this.coin=coin;
+    	this.change=change;
+    	this.remark=remark;
+    	
+    }
+    
+    
     
 	private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -167,6 +179,19 @@ public class BinanceHistoryRecord implements Comparable<BinanceHistoryRecord>, U
 	@Override
 	public boolean isSwap() {
 		return false;
+	}
+
+	@Override
+	public String toReadableString() {
+		return new StringBuilder()
+				.append(change)
+				.append(" ")
+				.append(coin)
+				.append(" due to: ")
+				.append(this.operation)
+				.append(" on date: ")
+				.append(utcTime)
+				.toString();
 	}
     
     

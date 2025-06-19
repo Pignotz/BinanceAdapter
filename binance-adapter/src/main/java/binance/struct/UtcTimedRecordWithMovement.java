@@ -13,6 +13,8 @@ public interface UtcTimedRecordWithMovement {
 	public BigDecimal getOutAmount();
 
 	public boolean isSwap();
+
+	public String toReadableString();
 	
 	
 
