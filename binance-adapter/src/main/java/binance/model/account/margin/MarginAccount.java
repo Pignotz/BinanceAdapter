@@ -244,15 +244,21 @@ public abstract class MarginAccount extends Account {
 							logger.info("... ... di cui {} ottenuti da precedenti scambi", usedPreviouslyBoughtAmount);
 							BigDecimal boughtAmountToConsider = usedPreviouslyBoughtAmount.multiply(soldCoinPrice);
 							if(soldCoinPrice.compareTo(previousTradePrice)>=0) {
-								BigDecimal profit = boughtAmountToConsider.subtract(previouslySoldAmount);
 								// allora quando avevo venduto i.e. 1 BTC li avevo venduti ad un prezzo più alto di quello a cui li sto ricomprando ora
 								//Quindi dovrei realizzare un profit //TODO Verify!!!
+								BigDecimal profit = boughtAmountToConsider.subtract(previouslySoldAmount);
+								if(profit.compareTo(BigDecimal.ZERO)<0) {
+									throw new RuntimeException("Profit can't be negative");
+								}
 								profitAndLosses.add(new TataxRecord(o.getUtcTime(), previouslySoldCoin, profit, TataxOperationType.CREDIT));
 								
 							} else {
 								// allora quando avevo venduto i.e. 1 BTC li avevo venduti ad un prezzo più basso di quello a cui li sto ricomprando ora
 								//Quindi dovrei realizzare un loss //TODO Verify!!!
 								BigDecimal loss = boughtAmountToConsider.subtract(previouslySoldAmount);
+								if(loss.compareTo(BigDecimal.ZERO)>0) {
+									throw new RuntimeException("Profit can't be negative");
+								}
 								profitAndLosses.add(new TataxRecord(o.getUtcTime(), previouslySoldCoin, loss, TataxOperationType.DEBIT));
 							}
 							if(stop) break;
