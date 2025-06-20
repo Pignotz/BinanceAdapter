@@ -81,7 +81,7 @@ public class Operation implements UtcTimedRecordWithMovement{
 		this.amountFee = amountFee;
 	}
 	public BigDecimal getPriceOfSoldCoin() {
-		return amountBought.negate().divide(amountSold,8, RoundingMode.HALF_UP);
+		return amountBought.negate().divide(amountSold,16, RoundingMode.HALF_UP);
 	}
 
 	public boolean isBoughtIsBase() {

@@ -17,6 +17,9 @@ public class IsolatedMarginAccount extends MarginAccount {
 		super(AccountType.ISOLATED_MARGIN, logger);
 	}
 
+
+	
+
 	
 		
 }

@@ -188,21 +188,25 @@ public abstract class MarginAccount extends Account {
 					List<CoinBalanceEntry> coinBalanceHistoryReversed = pricedCoinBalances.get(coinSold).getBalanceHistory();
 					Iterator<CoinBalanceEntry> coinBalanceHistoryIterator = coinBalanceHistoryReversed.iterator();
 					while(coinBalanceHistoryIterator.hasNext()) { //Per P&L
-						
+						if(actualSoldAmountFromPricedCoinBalances.compareTo(nonLoanedCoinSold)==0) {
+							break;
+						}
 						CoinBalanceEntry coinBalanceEntry = coinBalanceHistoryIterator.next();
+						BigDecimal previouslyBoughtAmount = coinBalanceEntry.getAmount();
+						String previouslyBoughtCoin = coinBalanceEntry.getCoin();
 						BigDecimal previouslySoldAmount = coinBalanceEntry.getCounterValueAmount();
 						String previouslySoldCoin = coinBalanceEntry.getCounterValueCoin(); //i.e. BTC
 						
 						boolean stop = false;
 						if(previouslySoldCoin.equals(coinBought)) {
-							actualSoldAmountFromPricedCoinBalances = actualSoldAmountFromPricedCoinBalances.add(coinBalanceEntry.getAmount());
+							actualSoldAmountFromPricedCoinBalances = actualSoldAmountFromPricedCoinBalances.add(previouslyBoughtAmount);
 							//A che prezzo il previouslySwappedAmount è stato scambiato?
 							BigDecimal previousTradePrice = coinBalanceEntry.getPriceOfIncomeCoin(); //Quanti USDC per 1 BTC
-							BigDecimal previouslyBoughtAmountToConsider = coinBalanceEntry.getAmount();
-							if(actualSoldAmountFromPricedCoinBalances.compareTo(nonLoanedCoinSold)>0) { //Allora sto prendendo troppo da amount1
-								previouslyBoughtAmountToConsider = coinBalanceEntry.getAmount().subtract(actualSoldAmountFromPricedCoinBalances.subtract(nonLoanedCoinSold));
+							BigDecimal previouslyBoughtAmountToConsider = previouslyBoughtAmount;
+							if(actualSoldAmountFromPricedCoinBalances.compareTo(nonLoanedCoinSold)>0) { //Allora sto prendendo troppo da actualSoldAmountFromPricedCoinBalances
+								previouslyBoughtAmountToConsider = previouslyBoughtAmount.subtract(actualSoldAmountFromPricedCoinBalances.subtract(nonLoanedCoinSold));
 								//Devo anche aggiornare la parte non scambiata di coinBalanceEntry //TODO VERIFY!!!
-								coinBalanceEntry.setAmount(coinBalanceEntry.getAmount().subtract(previouslyBoughtAmountToConsider));
+								coinBalanceEntry.setAmount(previouslyBoughtAmount.subtract(previouslyBoughtAmountToConsider));
 								coinBalanceEntry.setCounterValueAmount(coinBalanceEntry.getAmount().multiply(previousTradePrice));
 								actualSoldAmountFromPricedCoinBalances = nonLoanedCoinSold;
 								stop = true;
@@ -211,7 +215,7 @@ public abstract class MarginAccount extends Account {
 							}
 							logger.info("... ... di cui {} ottenuti da precedenti scambi", previouslyBoughtAmountToConsider);
 							BigDecimal boughtAmountToConsider = previouslyBoughtAmountToConsider.multiply(soldCoinPrice);
-							if(previousTradePrice.compareTo(soldCoinPrice)>=0) {
+							if(soldCoinPrice.compareTo(previousTradePrice)>=0) {
 								BigDecimal profit = boughtAmountToConsider.subtract(previouslySoldAmount);
 								// allora quando avevo venduto i.e. 1 BTC li avevo venduti ad un prezzo più alto di quello a cui li sto ricomprando ora
 								//Quindi dovrei realizzare un profit //TODO Verify!!!
@@ -280,4 +284,8 @@ public abstract class MarginAccount extends Account {
 		list.add(value);
 	}
 
+	
+	public List<TataxRecord> getProfitAndLosses() {
+		return profitAndLosses;
+	}
 }
