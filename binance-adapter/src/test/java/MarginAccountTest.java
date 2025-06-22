@@ -64,7 +64,7 @@ class MarginAccountTest {
 				.map(r -> r.getQuantity())
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 
-		assertEquals(0, BigDecimal.valueOf(-0.5).compareTo(total));
+		assertEquals(0, BigDecimal.valueOf(0.5).compareTo(total));
 
 	}
 	

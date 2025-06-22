@@ -24,21 +24,19 @@ import binance.struct.UtcTimedRecordWithMovement;
 
 public abstract class MarginAccount extends Account {
 
-	protected List<BinanceHistoryRecord> recordsForTatax;
+	protected List<TataxRecord> recordsForTatax;
 
-	protected Map<String,BigDecimal> balanceAvailableLoansForProfitAndLossCompute;
-	
-	protected Map<String,BigDecimal> balanceAvailableLoansForRepayments;
-	
+	protected Map<String,BigDecimal> balanceAvailableLoans;
+
+
 	protected List<TataxRecord> profitAndLosses;
-	
+
 	Map<String, CoinBalance> pricedCoinBalancesByCoinBought;
 
 	public MarginAccount(AccountType accountType, Logger logger) {
 		super(accountType, logger);
-		recordsForTatax = new ArrayList<BinanceHistoryRecord>();
-		balanceAvailableLoansForProfitAndLossCompute = new HashMap<String, BigDecimal>();
-		balanceAvailableLoansForRepayments = new HashMap<String, BigDecimal>();
+		recordsForTatax = new ArrayList<TataxRecord>();
+		balanceAvailableLoans = new HashMap<String, BigDecimal>();
 		profitAndLosses = new ArrayList<TataxRecord>();
 		pricedCoinBalancesByCoinBought = new HashMap<String, CoinBalance>();
 	}
@@ -137,31 +135,66 @@ public abstract class MarginAccount extends Account {
 				String coin = bhr.getCoin();
 				BigDecimal change = bhr.getChange();
 
-				if(!balanceAvailableLoansForProfitAndLossCompute.containsKey(coin)) {
-					balanceAvailableLoansForRepayments.put(coin, BigDecimal.ZERO);
-					balanceAvailableLoansForProfitAndLossCompute.put(coin, BigDecimal.ZERO);
+				if(!balanceAvailableLoans.containsKey(coin)) {
+					balanceAvailableLoans.put(coin, BigDecimal.ZERO);
 					pricedCoinBalancesByCoinBought.put(coin, new CoinBalance(coin));
 				}
 				switch (bhr.getOperation()) {
 				case TRANSFER_ACCOUNT:
-					recordsForTatax.add(bhr);
-				
+					if(bhr.getChange().compareTo(BigDecimal.ZERO)>0) {
+						recordsForTatax.add(new TataxRecord(movement.getUtcTime(), coin, bhr.getChange(), TataxOperationType.DEPOSIT));
+					}else {
+						BigDecimal amountToExhaust = bhr.getChange().negate();
+						//Prima prelevo dal capitale usato per gli scambi
+						List<CoinBalanceEntry> coinBalanceHistory = pricedCoinBalancesByCoinBought.get(coin).getBalanceHistory();
+						Iterator<CoinBalanceEntry> coinBalanceHistoryIterator = coinBalanceHistory.iterator();
+						while(coinBalanceHistoryIterator.hasNext()) { //Per Transfer OUT
+							if(amountToExhaust.compareTo(BigDecimal.ZERO)==0) {
+								break;
+							}
+							CoinBalanceEntry coinBalanceEntry = coinBalanceHistoryIterator.next();
+							BigDecimal availableFromPrevSwaps = coinBalanceEntry.getAmount();
+							BigDecimal availableFromPrevSwapsToUse = coinBalanceEntry.getAmount();
+							BigDecimal previousTradePrice = coinBalanceEntry.getPriceOfIncomeCoin(); //Quanti USDC per 1 BTC
+
+							if(availableFromPrevSwapsToUse.compareTo(amountToExhaust)>0) { //E' troppo
+								availableFromPrevSwapsToUse = amountToExhaust;
+								coinBalanceEntry.setAmount(availableFromPrevSwaps.subtract(availableFromPrevSwapsToUse));
+								coinBalanceEntry.setCounterValueAmount(coinBalanceEntry.getAmount().multiply(previousTradePrice));
+							} else {
+								coinBalanceHistoryIterator.remove(); //Lo esaurirò tutto						
+							}
+							recordsForTatax.add(new TataxRecord(movement.getUtcTime(), coin, availableFromPrevSwaps, TataxOperationType.WITHDRAWAL,availableFromPrevSwapsToUse.multiply(previousTradePrice),coinBalanceEntry.getCounterValueCoin()));
+							amountToExhaust = amountToExhaust.subtract(availableFromPrevSwaps);
+						}
+						//Poi prelevo dal capitale precedentemente trasferito ma non impiegato
+						recordsForTatax.add(new TataxRecord(movement.getUtcTime(), coin, amountToExhaust, TataxOperationType.WITHDRAWAL));
+					}
 					break;
 				case ISOLATED_MARGIN_LOAN, 
 				MARGIN_LOAN:
-				balanceAvailableLoansForProfitAndLossCompute.put(coin, change.add(balanceAvailableLoansForProfitAndLossCompute.get(coin)));
-				balanceAvailableLoansForRepayments.put(coin, change.add(balanceAvailableLoansForProfitAndLossCompute.get(coin)));
+					balanceAvailableLoans.put(coin, change.add(balanceAvailableLoans.get(coin)));
 				break;
 				case TRANSACTION_FEE:
 					break;
 				case ISOLATED_MARGIN_REPAYMENT, 
 				MARGIN_REPAYMENT:
-					balanceAvailableLoansForRepayments.get(coin);
-					//Devo saturare quanto sto ripagando togliendolo in primis dagli scambi
-				BigDecimal amountToExhaust = change;
+					BigDecimal amountToExhaust = change;
+				//Devo saturare quanto sto ripagando togliendolo in primis dal credito non utilizzato
+				BigDecimal availableFromNotUsedLoans = balanceAvailableLoans.get(coin);
+				BigDecimal usedAvailableFromNotUsedLoans = availableFromNotUsedLoans;
+				if(usedAvailableFromNotUsedLoans.compareTo(amountToExhaust)>0) { //E' troppo
+					usedAvailableFromNotUsedLoans = amountToExhaust;
+					balanceAvailableLoans.put(coin, balanceAvailableLoans.get(coin).subtract(usedAvailableFromNotUsedLoans));
+				}
+				amountToExhaust = amountToExhaust.subtract(usedAvailableFromNotUsedLoans);
+				//..poi dagli scambi
 				List<CoinBalanceEntry> coinBalanceHistory = pricedCoinBalancesByCoinBought.get(coin).getBalanceHistory();
 				Iterator<CoinBalanceEntry> coinBalanceHistoryIterator = coinBalanceHistory.iterator();
 				while(coinBalanceHistoryIterator.hasNext()) { //Per Repay
+					if(amountToExhaust.compareTo(BigDecimal.ZERO)==0) {
+						break;
+					}
 					CoinBalanceEntry coinBalanceEntry = coinBalanceHistoryIterator.next();
 					BigDecimal availableFromPrevSwaps = coinBalanceEntry.getAmount();
 					BigDecimal availableFromPrevSwapsToUse = coinBalanceEntry.getAmount();
@@ -171,19 +204,25 @@ public abstract class MarginAccount extends Account {
 						availableFromPrevSwapsToUse = amountToExhaust;
 						coinBalanceEntry.setAmount(availableFromPrevSwaps.subtract(availableFromPrevSwapsToUse));
 						coinBalanceEntry.setCounterValueAmount(coinBalanceEntry.getAmount().multiply(previousTradePrice));
-						
 					} else {
-						//TODO Verify!!!
-						
+						coinBalanceHistoryIterator.remove(); //Lo esaurirò tutto						
 					}
+
+					amountToExhaust = amountToExhaust.subtract(availableFromPrevSwaps);
+
 				}
-				//ed in secondo luogo dalle mie monete aggiungendo il tatax debit
+				if(amountToExhaust.compareTo(BigDecimal.ZERO)<0) throw new RuntimeException();
+				if(amountToExhaust.compareTo(BigDecimal.ZERO)>0) {
+					//ed in secondo luogo dalle mie monete aggiungendo il tatax debit
+					recordsForTatax.add(new TataxRecord(movement.getUtcTime(), coin, amountToExhaust, TataxOperationType.DEBIT));		
+
+				}
 				break;
 				case BNB_FEE_DEDUCTION:
-					
+
 					break;
 				case ISOLATED_MARGIN_LIQUIDATION_FEE:
-				
+
 					break;
 				default:
 					throw new RuntimeException("Unmanaged Case " + bhr.getOperation());
@@ -192,20 +231,20 @@ public abstract class MarginAccount extends Account {
 				Operation o = (Operation) movement;
 				String coinBought = o.getCoinBought(); //i.e. BTC
 				String coinSold = o.getCoinSold(); //i.e. USDC
-				
-				if(!balanceAvailableLoansForProfitAndLossCompute.containsKey(coinBought)) {
-				
-					balanceAvailableLoansForProfitAndLossCompute.put(coinBought, BigDecimal.ZERO);
+
+				if(!balanceAvailableLoans.containsKey(coinBought)) {
+
+					balanceAvailableLoans.put(coinBought, BigDecimal.ZERO);
 					pricedCoinBalancesByCoinBought.put(coinBought, new CoinBalance(coinBought));
 				}
-				
+
 				BigDecimal soldCoinPrice = o.getPriceOfSoldCoin(); //i.e. quanti USDC per 1 BTC?
 				BigDecimal amountSold = o.getAmountSold(); //i.e. quanti USDC Venduti?
-				
-				BigDecimal amountAvailableFromLoans = balanceAvailableLoansForProfitAndLossCompute.get(coinSold);
+
+				BigDecimal amountAvailableFromLoans = balanceAvailableLoans.get(coinSold);
 				BigDecimal actualAmountFromLoansSold;
 				BigDecimal nonLoanedCoinSold = amountSold.negate().subtract(amountAvailableFromLoans);
-				
+
 				if(nonLoanedCoinSold.compareTo(BigDecimal.ZERO)>=0) {
 					logger.info("... sto utilizzando {} {} dal denaro non preso in prestito per la vendita", nonLoanedCoinSold, o.getCoinSold());
 					actualAmountFromLoansSold = amountAvailableFromLoans;
@@ -224,42 +263,45 @@ public abstract class MarginAccount extends Account {
 						String previouslyBoughtCoin = coinBalanceEntry.getCoin();
 						BigDecimal previouslySoldAmount = coinBalanceEntry.getCounterValueAmount();
 						String previouslySoldCoin = coinBalanceEntry.getCounterValueCoin(); //i.e. BTC
-						
+
 						boolean stop = false;
 						if(previouslySoldCoin.equals(coinBought)) {
 							actualSoldAmountFromPreviousSwaps = actualSoldAmountFromPreviousSwaps.add(previouslyBoughtAmount);
 							//A che prezzo il previouslySwappedAmount è stato scambiato?
 							BigDecimal previousTradePrice = coinBalanceEntry.getPriceOfIncomeCoin(); //Quanti USDC per 1 BTC
 							BigDecimal usedPreviouslyBoughtAmount = previouslyBoughtAmount;
+							BigDecimal correspondingPreviouslySoldAmountPortion = previouslySoldAmount;
 							if(actualSoldAmountFromPreviousSwaps.compareTo(nonLoanedCoinSold)>0) { //Allora sto prendendo troppo da actualSoldAmountFromPricedCoinBalances
 								usedPreviouslyBoughtAmount = previouslyBoughtAmount.subtract(actualSoldAmountFromPreviousSwaps.subtract(nonLoanedCoinSold));
 								//Devo anche aggiornare la parte non scambiata di coinBalanceEntry //TODO VERIFY!!!
 								coinBalanceEntry.setAmount(previouslyBoughtAmount.subtract(usedPreviouslyBoughtAmount));
 								coinBalanceEntry.setCounterValueAmount(coinBalanceEntry.getAmount().multiply(previousTradePrice));
+								correspondingPreviouslySoldAmountPortion = usedPreviouslyBoughtAmount.multiply(previousTradePrice);
 								actualSoldAmountFromPreviousSwaps = nonLoanedCoinSold;
+
 								stop = true;
 							} else {
 								coinBalanceHistoryIterator.remove(); //Lo scambierò tutto
 							}
-							logger.info("... ... di cui {} ottenuti da precedenti scambi", usedPreviouslyBoughtAmount);
+							logger.info("... ... di cui {} ottenuti da precedenti scambi con {}", usedPreviouslyBoughtAmount, correspondingPreviouslySoldAmountPortion);
 							BigDecimal boughtAmountToConsider = usedPreviouslyBoughtAmount.multiply(soldCoinPrice);
 							if(soldCoinPrice.compareTo(previousTradePrice)>=0) {
 								// allora quando avevo venduto i.e. 1 BTC li avevo venduti ad un prezzo più alto di quello a cui li sto ricomprando ora
 								//Quindi dovrei realizzare un profit //TODO Verify!!!
-								BigDecimal profit = boughtAmountToConsider.subtract(previouslySoldAmount);
+								BigDecimal profit = boughtAmountToConsider.subtract(correspondingPreviouslySoldAmountPortion);
 								if(profit.compareTo(BigDecimal.ZERO)<0) {
-									throw new RuntimeException("Profit can't be negative");
+									throw new RuntimeException("Profit can't be negative value is: " + profit.toString());
 								}
 								profitAndLosses.add(new TataxRecord(o.getUtcTime(), previouslySoldCoin, profit, TataxOperationType.CREDIT));
-								
+
 							} else {
 								// allora quando avevo venduto i.e. 1 BTC li avevo venduti ad un prezzo più basso di quello a cui li sto ricomprando ora
 								//Quindi dovrei realizzare un loss //TODO Verify!!!
-								BigDecimal loss = boughtAmountToConsider.subtract(previouslySoldAmount);
+								BigDecimal loss = boughtAmountToConsider.subtract(correspondingPreviouslySoldAmountPortion);
 								if(loss.compareTo(BigDecimal.ZERO)>0) {
-									throw new RuntimeException("Profit can't be negative");
+									throw new RuntimeException("Profit can't be positive value is: "+ loss.toString());
 								}
-								profitAndLosses.add(new TataxRecord(o.getUtcTime(), previouslySoldCoin, loss, TataxOperationType.DEBIT));
+								profitAndLosses.add(new TataxRecord(o.getUtcTime(), previouslySoldCoin, loss.negate(), TataxOperationType.DEBIT));
 							}
 							if(stop) break;
 						}
@@ -271,22 +313,23 @@ public abstract class MarginAccount extends Account {
 						logger.info("... ... di cui {} utilizzando il mio capitale effettivo non preso in prestito e non derivante da scambi con denaro preso in prestito", myCoinAmountSold);
 
 						//TODO Verify
-						BinanceHistoryRecord debitRecordForTatax = new BinanceHistoryRecord("", movement.getUtcTime(), this.accountType.toString(), BinanceOperationType.TRANSACTION_SOLD, o.getCoinSold(), myCoinAmountSold, "MyCoinsDebit");
+						TataxRecord debitRecordForTatax = new TataxRecord(movement.getUtcTime(), o.getCoinSold(), myCoinAmountSold, TataxOperationType.DEBIT);
 						recordsForTatax.add(debitRecordForTatax);
 						//TODO Verify
 						BigDecimal creditAmount = myCoinAmountSold.multiply(soldCoinPrice);
-						BinanceHistoryRecord creditRecordForTatax = new BinanceHistoryRecord("",movement.getUtcTime(),accountType.toString(),BinanceOperationType.TRANSACTION_BUY,o.getCoinBought(),creditAmount,"MyCoinsCredit");
+						TataxRecord creditRecordForTatax = new TataxRecord(movement.getUtcTime(),o.getCoinBought(),creditAmount,TataxOperationType.CREDIT);
 						recordsForTatax.add(creditRecordForTatax);
 					}
 				} else {
 					actualAmountFromLoansSold = amountSold.negate();
 				}
-				logger.info("... sto utilizzando {} dal denaro preso in prestito per la vendita", actualAmountFromLoansSold);
-				BigDecimal actualAmountBoughtUsingLoans = actualAmountFromLoansSold.multiply(soldCoinPrice); //TODO VERIFICA SUBITO
-				balanceAvailableLoansForProfitAndLossCompute.put(coinSold, balanceAvailableLoansForProfitAndLossCompute.get(coinSold).subtract(actualAmountFromLoansSold));		
+				if(actualAmountFromLoansSold.compareTo(BigDecimal.ZERO)>0) {
+					logger.info("... sto utilizzando {} dal denaro preso in prestito per la vendita", actualAmountFromLoansSold);
+					BigDecimal actualAmountBoughtUsingLoans = actualAmountFromLoansSold.multiply(soldCoinPrice); //TODO VERIFICA SUBITO
+					balanceAvailableLoans.put(coinSold, balanceAvailableLoans.get(coinSold).subtract(actualAmountFromLoansSold));		
+					pricedCoinBalancesByCoinBought.get(coinBought).addCoinBalanceEntry(coinBought, actualAmountBoughtUsingLoans, coinSold, actualAmountFromLoansSold);
+				}
 
-				pricedCoinBalancesByCoinBought.get(coinBought).addCoinBalanceEntry(coinBought, actualAmountBoughtUsingLoans, coinSold, actualAmountFromLoansSold);
-				
 			}
 			//CoherenceChecks
 			checkBalances();	
@@ -295,7 +338,7 @@ public abstract class MarginAccount extends Account {
 
 
 	private void checkBalances() {
-		balanceAvailableLoansForProfitAndLossCompute.entrySet().stream().forEach(e -> {
+		balanceAvailableLoans.entrySet().stream().forEach(e -> {
 			logger.debug("balanceAvailableLoans for {}: {}",e.getKey(), e.getValue());
 			if(e.getValue().compareTo(BigDecimal.ZERO)<0) {
 				throw new RuntimeException("Balance for coin " + e.getKey() + " is " +e.getValue() +" - error LESS than ZERO balanceAvailableLoans");
@@ -315,7 +358,7 @@ public abstract class MarginAccount extends Account {
 		list.add(value);
 	}
 
-	
+
 	public List<TataxRecord> getProfitAndLosses() {
 		return profitAndLosses;
 	}

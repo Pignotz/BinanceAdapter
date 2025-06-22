@@ -11,9 +11,9 @@ public class TataxRecord {
 	private LocalDateTime timeStamp;
 	private TataxOperationType movementType;
 	private BigDecimal quantity;
-	private String countervalue = "";
+	private BigDecimal countervalue;
 	private String symbolCountervalue = "";
-	private String userCountervalue = "";
+	private BigDecimal userCountervalue;
 	private String userSymbolCountervalue = "";
 	private String sourceCountervalue = "";
 	private String sourceSymbolCountervalue = "";
@@ -22,11 +22,21 @@ public class TataxRecord {
 	private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
 	public TataxRecord() {};
+	
 	public TataxRecord(LocalDateTime timeStamp, String symbol, BigDecimal quantity, TataxOperationType tataxOperationType) {
 		this.timeStamp=timeStamp;
 		this.symbol = symbol;
 		this.quantity = quantity;
 		this.movementType = tataxOperationType;
+	}
+	
+	public TataxRecord(LocalDateTime timeStamp, String symbol, BigDecimal quantity, TataxOperationType tataxOperationType, BigDecimal counterValue, String symbolCounterValue) {
+		this.timeStamp=timeStamp;
+		this.symbol = symbol;
+		this.quantity = quantity;
+		this.movementType = tataxOperationType;
+		this.countervalue=counterValue;
+		this.symbolCountervalue=symbolCounterValue;
 	}
 	
 	public TataxRecord(BinanceHistoryRecord binanceHistoryRecord) {
@@ -74,7 +84,7 @@ public class TataxRecord {
 		return quantity;
 	}
 
-	public String getCountervalue() {
+	public BigDecimal getCountervalue() {
 		return countervalue;
 	}
 
@@ -83,7 +93,7 @@ public class TataxRecord {
 		return symbolCountervalue;
 	}
 
-	public String getUserCountervalue() {
+	public BigDecimal getUserCountervalue() {
 		return userCountervalue;
 	}
 
@@ -107,9 +117,9 @@ public class TataxRecord {
 	        formatter.format(timeStamp), 
 	        movementType.toString(), 
 	        quantity.toString(),
-	        countervalue.toString(), 
+	        countervalue == null ? "" : countervalue.toString(), 
 	        symbolCountervalue, 
-	        userCountervalue, 
+	        userCountervalue == null ? "" : userCountervalue.toString(), 
 	        userSymbolCountervalue,
 	        sourceCountervalue, 
 	        sourceSymbolCountervalue
