@@ -125,6 +125,15 @@ public class TataxRecord {
 	        sourceSymbolCountervalue
 	    };
 	}
+
+	@Override
+	public String toString() {
+		return "TataxRecord [symbol=" + symbol + ", timeStamp=" + timeStamp
+				+ ", movementType=" + movementType + ", quantity=" + quantity + ", countervalue=" + countervalue
+				+ ", symbolCountervalue=" + symbolCountervalue+ "]";
+	}
+	
+	
 	
 	
 	

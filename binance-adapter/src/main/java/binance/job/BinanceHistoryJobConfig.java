@@ -3,6 +3,7 @@ package binance.job;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,12 +36,16 @@ import com.opencsv.CSVWriter;
 
 import binance.job.steps.AggregateAssignStepConfig;
 import binance.job.steps.ComputePlusMinusStepConfig;
-import binance.job.steps.ReadStepConfig;
+import binance.job.steps.ReadBinanceHistoryStepConfig;
+import binance.job.steps.ReadPriceTableStepConfig;
 import binance.job.steps.ValidateStepConfig;
 import binance.model.BinanceHistoryRecordList;
+import binance.model.account.margin.CrossMarginAccount;
+import binance.model.account.margin.IsolatedMarginAccount;
 import binance.struct.BinanceHistoryRecord;
 import binance.struct.TataxRecord;
 import jakarta.annotation.PostConstruct;
+import prices.PriceTable;
 
 @Component
 public class BinanceHistoryJobConfig {
@@ -53,28 +58,31 @@ public class BinanceHistoryJobConfig {
 	@Autowired private PlatformTransactionManager platformTransactionManager;
 
 
-	@Autowired private ReadStepConfig readStepConfig;
+	@Autowired private ReadBinanceHistoryStepConfig readStepConfig;
+	@Autowired private ReadPriceTableStepConfig readPriceTableStepConfig;
 	@Autowired private ValidateStepConfig validateStepConfig;
 	@Autowired private AggregateAssignStepConfig aggregateAndAssignToAccountsStepConfig;
 	@Autowired private ComputePlusMinusStepConfig computePlusMinusStepConfig;
 	@Autowired private BinanceHistoryRecordList binanceHistoryRecordList;
-	
-	
+
+	@Autowired private CrossMarginAccount crossMarginAccount;
+	@Autowired private IsolatedMarginAccount isolatedMarginAccount;
+	@Autowired private PriceTable priceTable;
 	@PostConstruct
 	private void init() {
-		
+
 	}
 
 	@Bean
 	public Job binanceHistoryJob() {
 		return new JobBuilder("binanceHistoryJob",jobRepository)
 				.incrementer(new RunIdIncrementer()) // Allows re-execution with a new run ID
-				.start(readStepConfig.getReadStep())
+				.start(readStepConfig.getReadStepBinanceHistory())
+				.next(readPriceTableStepConfig.getReadStep())
 				.next(validateStepConfig.getValidateStep())
 				.next(aggregateAndAssignToAccountsStepConfig.getAggregateAndAssignToAccountStep())
 				.next(computePlusMinusStepConfig.getComputePlusMinusStep())
 				.next(adaptAndWriteStep())
-				//.next(computeMarginPlusMinus())
 				.build();
 	}
 
@@ -100,7 +108,33 @@ public class BinanceHistoryJobConfig {
 									}
 									return delta;
 								}, true);
-								writeFileTataxRecordComparator(formattedDate,formattedDate+"_BinanceTataxAdaptedByBySymbol"+entry.getKey()+".csv", entry.getValue(), (TataxRecord e1, TataxRecord e2)-> {
+//								writeFileTataxRecordComparator(formattedDate,formattedDate+"_BinanceTataxAdaptedByBySymbol"+entry.getKey()+".csv", entry.getValue(), (TataxRecord e1, TataxRecord e2)-> {
+//									int delta = e1.getSymbol().compareTo(e2.getSymbol());
+//									if(delta==0) {
+//										delta = e2.getTimeStamp().compareTo(e1.getTimeStamp());
+//									}
+//									if(delta==0) {
+//										delta = e2.getMovementType().compareTo(e1.getMovementType());
+//									}
+//									return delta;
+//								});
+								writeFileBinanceComparator(formattedDate, formattedDate+"_BinanceNotAdaptedByTimeStamp"+entry.getKey()+".csv",entry.getValue(), (BinanceHistoryRecord e1, BinanceHistoryRecord e2)-> {
+									int delta = e1.getUtcTime().compareTo(e2.getUtcTime());
+									if(delta==0) {
+										delta = e2.getChange().compareTo(e1.getChange());
+									}
+									return delta;
+								},false);
+							} catch (IOException e1) {
+								logger.error(e1.getMessage(),e1);
+								throw new RuntimeException(e1);
+							}
+						});
+
+						Map<Integer, List<TataxRecord>> crossMarginPAndL = crossMarginAccount.getProfitAndLosses().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
+						crossMarginPAndL.entrySet().stream().forEach(entry -> {
+							try {
+								writeFileTataxRecordComparator(formattedDate,formattedDate+"_CrossMarginProfit&Losses"+entry.getKey()+".csv", entry.getValue(), (TataxRecord e1, TataxRecord e2)-> {
 									int delta = e1.getSymbol().compareTo(e2.getSymbol());
 									if(delta==0) {
 										delta = e2.getTimeStamp().compareTo(e1.getTimeStamp());
@@ -109,11 +143,60 @@ public class BinanceHistoryJobConfig {
 										delta = e2.getMovementType().compareTo(e1.getMovementType());
 									}
 									return delta;
-								});
-								writeFileBinanceComparator(formattedDate, formattedDate+"_BinanceNotAdaptedByTimeStamp"+entry.getKey()+".csv",entry.getValue(), (BinanceHistoryRecord e1, BinanceHistoryRecord e2)-> {
-									int delta = e1.getUtcTime().compareTo(e2.getUtcTime());
+								},true);
+							} catch (IOException e1) {
+								logger.error(e1.getMessage(),e1);
+								throw new RuntimeException(e1);
+							}
+						});
+						Map<Integer, List<TataxRecord>> crossMarginTataxRecords = crossMarginAccount.getProfitAndLosses().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
+						crossMarginTataxRecords.entrySet().stream().forEach(entry -> {
+							try {
+								writeFileTataxRecordComparator(formattedDate,formattedDate+"_CrossMarginMyCoins"+entry.getKey()+".csv", entry.getValue(), (TataxRecord e1, TataxRecord e2)-> {
+									int delta = e1.getSymbol().compareTo(e2.getSymbol());
 									if(delta==0) {
-										delta = e2.getChange().compareTo(e1.getChange());
+										delta = e2.getTimeStamp().compareTo(e1.getTimeStamp());
+									}
+									if(delta==0) {
+										delta = e2.getMovementType().compareTo(e1.getMovementType());
+									}
+									return delta;
+								},false);
+							} catch (IOException e1) {
+								logger.error(e1.getMessage(),e1);
+								throw new RuntimeException(e1);
+							}
+						});
+						
+						
+						Map<Integer, List<TataxRecord>> isolatedMarginPAndL = isolatedMarginAccount.getProfitAndLosses().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
+						isolatedMarginPAndL.entrySet().stream().forEach(entry -> {
+							try {
+								writeFileTataxRecordComparator(formattedDate,formattedDate+"_IsolatedMarginProfit&Losses"+entry.getKey()+".csv", entry.getValue(), (TataxRecord e1, TataxRecord e2)-> {
+									int delta = e1.getSymbol().compareTo(e2.getSymbol());
+									if(delta==0) {
+										delta = e2.getTimeStamp().compareTo(e1.getTimeStamp());
+									}
+									if(delta==0) {
+										delta = e2.getMovementType().compareTo(e1.getMovementType());
+									}
+									return delta;
+								},true);
+							} catch (IOException e1) {
+								logger.error(e1.getMessage(),e1);
+								throw new RuntimeException(e1);
+							}
+						});
+						Map<Integer, List<TataxRecord>> isolatedMarginTataxRecords = isolatedMarginAccount.getProfitAndLosses().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
+						isolatedMarginTataxRecords.entrySet().stream().forEach(entry -> {
+							try {
+								writeFileTataxRecordComparator(formattedDate,formattedDate+"_IsolatedMarginMyCoins"+entry.getKey()+".csv", entry.getValue(), (TataxRecord e1, TataxRecord e2)-> {
+									int delta = e1.getSymbol().compareTo(e2.getSymbol());
+									if(delta==0) {
+										delta = e2.getTimeStamp().compareTo(e1.getTimeStamp());
+									}
+									if(delta==0) {
+										delta = e2.getMovementType().compareTo(e1.getMovementType());
 									}
 									return delta;
 								},false);
@@ -127,10 +210,21 @@ public class BinanceHistoryJobConfig {
 				},platformTransactionManager).build();
 	}
 
+	
+	
 	private void writeFileTataxRecordComparator(String subFolder, String fileName,
-			List<BinanceHistoryRecord> binanceHistoryRecords, Comparator<TataxRecord> comparator) throws IOException {
-		List<TataxRecord> tataxAdaptedRecords = binanceHistoryRecords.stream().map(e -> new TataxRecord(e)).sorted(comparator).collect(Collectors.toList());
+			List<TataxRecord> tataxRecords, Comparator<TataxRecord> comparator,boolean computeTotalEUR) throws IOException {
+		List<TataxRecord> tataxAdaptedRecords = tataxRecords.stream().sorted(comparator).collect(Collectors.toList());
 		writeFile(subFolder,fileName, tataxAdaptedRecords);
+		if(computeTotalEUR) {
+			tataxAdaptedRecords.stream().map(r -> {
+				BigDecimal q = r.getMovementType().getDoNegateAmount() ? r.getQuantity().negate() : r.getQuantity();
+				return q.multiply(priceTable.getPrice(r.getSymbol(), r.getTimeStamp()));
+			})
+			.reduce(BigDecimal.ZERO, BigDecimal::add);
+		}
+
+		
 	}
 
 	private void writeFileBinanceComparator(String subFolder, String fileName, List<BinanceHistoryRecord> binanceHistoryRecords, Comparator<BinanceHistoryRecord> comparator, boolean adapt) throws IOException {
@@ -217,33 +311,4 @@ public class BinanceHistoryJobConfig {
 			throw e;            
 		}
 	}
-
-
-	
-
-	
-
-
-
-
-	@Bean
-	public Step computeMarginPlusMinus() {
-		return new StepBuilder("processStep", jobRepository)
-				.tasklet(new Tasklet() {
-					@Override
-					public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
-						
-						
-						
-						List<BinanceHistoryRecord> wrkBinanceHistoryRecords = binanceHistoryRecordList.stream().filter(r -> r.getOperation().getNeededForMargin()).sorted().collect(Collectors.toList());
-					
-						
-						return null;	
-					}
-				},platformTransactionManager).build();
-	}
-
-
-
-
 }

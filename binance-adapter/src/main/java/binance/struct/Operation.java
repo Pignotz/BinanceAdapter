@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
+import binance.CommonDef;
+
 public class Operation implements UtcTimedRecordWithMovement{
 	private LocalDateTime utcTime;
 	private String coinBought;
@@ -81,7 +83,7 @@ public class Operation implements UtcTimedRecordWithMovement{
 		this.amountFee = amountFee;
 	}
 	public BigDecimal getPriceOfSoldCoin() {
-		return amountBought.negate().divide(amountSold,16, RoundingMode.HALF_UP);
+		return amountBought.negate().divide(amountSold,CommonDef.BIG_DECIMAL_DIVISION_SCALE, RoundingMode.HALF_UP);
 	}
 
 	public boolean isBoughtIsBase() {

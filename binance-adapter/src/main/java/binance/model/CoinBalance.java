@@ -5,6 +5,8 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
+import binance.CommonDef;
+
 public class CoinBalance {
 
 	
@@ -57,7 +59,7 @@ public class CoinBalance {
 		}
 
 		public BigDecimal getPriceOfIncomeCoin() {
-			BigDecimal price = counterValueAmount.divide(amount,16, RoundingMode.HALF_UP);
+			BigDecimal price = counterValueAmount.divide(amount,CommonDef.BIG_DECIMAL_DIVISION_SCALE, RoundingMode.HALF_UP);
 			if(priceOfCoin==null) {
 				priceOfCoin = price;
 			}else {

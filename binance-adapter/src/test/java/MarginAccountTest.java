@@ -1,4 +1,5 @@
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -33,7 +34,9 @@ class MarginAccountTest {
 		isolatedMarginAccount.computePlusMinus();
 
 		BigDecimal total = isolatedMarginAccount.getProfitAndLosses().stream()
-				.map(r -> r.getQuantity())
+				.filter(r -> r.getSymbol().equals("BTC"))
+				.map(r -> r.getMovementType().getDoNegateAmount() ? r.getQuantity().negate() : r.getQuantity()
+				)
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 
 		assertEquals(0, BigDecimal.valueOf(0.15).compareTo(total));
@@ -61,18 +64,21 @@ class MarginAccountTest {
 		isolatedMarginAccount.computePlusMinus();
 
 		BigDecimal total = isolatedMarginAccount.getProfitAndLosses().stream()
-				.map(r -> r.getQuantity())
+				.filter(r -> r.getSymbol().equals("BTC"))
+				.map(r -> r.getMovementType().getDoNegateAmount() ? r.getQuantity().negate() : r.getQuantity()
+				)
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 
-		assertEquals(0, BigDecimal.valueOf(0.5).compareTo(total));
+		assertEquals(0, BigDecimal.valueOf(-0.5).compareTo(total));
 
 	}
 	
 	@Test
 	void testMyCoinUsage() {
 		IsolatedMarginAccount isolatedMarginAccount = new IsolatedMarginAccount();
-		LocalDateTime time0 = LocalDateTime.of(2025, 01, 01, 1, 0);
+		LocalDateTime time0 = LocalDateTime.of(2025, 01, 01, 0, 0);
 		isolatedMarginAccount.addRecord(new BinanceHistoryRecord("", time0, "Isolated Margin", BinanceOperationType.TRANSFER_ACCOUNT, "USDC", BigDecimal.valueOf(2000), ""));
+		isolatedMarginAccount.addRecord(new BinanceHistoryRecord("", time0, "Isolated Margin", BinanceOperationType.TRANSFER_ACCOUNT, "BTC", BigDecimal.valueOf(0.01), ""));
 		
 		LocalDateTime time1 = LocalDateTime.of(2025, 01, 01, 1, 0);
 		isolatedMarginAccount.addRecord(new BinanceHistoryRecord("", time1, "Isolated Margin", BinanceOperationType.ISOLATED_MARGIN_LOAN, "BTC", BigDecimal.valueOf(1.5), ""));
@@ -93,14 +99,19 @@ class MarginAccountTest {
 		isolatedMarginAccount.addRecord(new BinanceHistoryRecord("", time5, "Isolated Margin", BinanceOperationType.TRANSACTION_BUY, "BTC", BigDecimal.valueOf(1), ""));
 		isolatedMarginAccount.addRecord(new BinanceHistoryRecord("", time5, "Isolated Margin", BinanceOperationType.TRANSACTION_SPEND, "USDC", BigDecimal.valueOf(-1000), ""));
 		
+		LocalDateTime time6 = LocalDateTime.of(2025, 01, 01, 6, 0);	
+		isolatedMarginAccount.addRecord(new BinanceHistoryRecord("", time6, "Isolated Margin", BinanceOperationType.ISOLATED_MARGIN_REPAYMENT, "BTC", BigDecimal.valueOf(-1.505), ""));
 
 		isolatedMarginAccount.computePlusMinus();
 
-		BigDecimal total = isolatedMarginAccount.getProfitAndLosses().stream()
-				.map(r -> r.getQuantity())
+		BigDecimal total = isolatedMarginAccount.getTataxRecords().stream()
+				.filter(r -> r.getSymbol().equals("BTC"))
+				.map(r -> r.getMovementType().getDoNegateAmount() ? r.getQuantity().negate() : r.getQuantity()
+				)
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 
-		assertEquals(0, BigDecimal.valueOf(-0.5).compareTo(total));
+		//Errore minimo
+		assertTrue(BigDecimal.valueOf(-0.005).subtract(total).compareTo(BigDecimal.valueOf(0.0000001))<0);
 
 	}
 

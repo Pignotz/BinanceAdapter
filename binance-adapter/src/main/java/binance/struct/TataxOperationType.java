@@ -2,26 +2,39 @@ package binance.struct;
 
 public enum TataxOperationType {
 
-	IGNORE,
-	DECIDE_BASED_ON_AMOUNT,
-	DEPOSIT,
-	CREDIT,
+	IGNORE(null),
+	DECIDE_BASED_ON_AMOUNT(null),
+	DEPOSIT(false),
+	CREDIT(false),
 	//FUNDING_FEE,
 	//STAKING,
 	//FUNDING_FEE_CREDIT,
-	EARN,
+	EARN(false),
 	//PROFIT,
-	AIRDROP,
+	AIRDROP(false),
 	//FORK,
 	//MINING,
 	//CASHBACK,
 	//DONATION_RECEIVED,
 	//DONATION_SENT,
-	WITHDRAWAL,
-	DEBIT,
+	DEBIT(true),
+	EXCHANGE_FEE(true),
+	WITHDRAWAL(true);
 	//FUNDING_FEE_DEBIT,
 	//BLOCKCHAIN_FEE,
 	//LOSS,
-	EXCHANGE_FEE;
+	
+	
+	TataxOperationType(Boolean object) {
+		this.doNegateAmount=object;
+	}
+
+	private final Boolean doNegateAmount;
+
+	public Boolean getDoNegateAmount() {
+		return doNegateAmount;
+	}
+	
+	
 	
 }
