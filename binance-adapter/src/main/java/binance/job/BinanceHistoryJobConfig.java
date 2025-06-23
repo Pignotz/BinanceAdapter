@@ -42,10 +42,10 @@ import binance.job.steps.ValidateStepConfig;
 import binance.model.BinanceHistoryRecordList;
 import binance.model.account.margin.CrossMarginAccount;
 import binance.model.account.margin.IsolatedMarginAccount;
+import binance.prices.PriceTable;
 import binance.struct.BinanceHistoryRecord;
 import binance.struct.TataxRecord;
 import jakarta.annotation.PostConstruct;
-import prices.PriceTable;
 
 @Component
 public class BinanceHistoryJobConfig {

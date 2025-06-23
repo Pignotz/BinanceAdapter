@@ -24,12 +24,12 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import binance.prices.PriceTable;
+import binance.prices.PriceTableRecord;
 import binance.struct.BinanceHistoryRecord;
 import binance.struct.BinanceOperationType;
 import binance.struct.TataxOperationType;
 import jakarta.annotation.PostConstruct;
-import prices.PriceTable;
-import prices.PriceTableRecord;
 
 @Component
 public class ReadPriceTableStepConfig {
