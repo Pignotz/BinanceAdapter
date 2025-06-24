@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.Comparator;
@@ -245,7 +246,8 @@ public class BinanceHistoryJobConfig {
 		if(computeTotalEUR) {
 			BigDecimal totProfitOrLoss = tataxAdaptedRecords.stream().map(r -> {
 				BigDecimal q = r.getMovementType().getDoNegateAmount() ? r.getQuantity().negate() : r.getQuantity();
-				return q.multiply(priceTable.getPrice(r.getSymbol(), r.getTimeStamp()));
+				BigDecimal result = q.multiply(priceTable.getPrice(r.getSymbol(), r.getTimeStamp()));
+				return result;
 			})
 			.reduce(BigDecimal.ZERO, BigDecimal::add);
 			logger.info("{} - tot profit or loss = {}",fileName, totProfitOrLoss);

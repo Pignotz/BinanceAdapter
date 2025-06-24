@@ -1,6 +1,7 @@
 package binance.job.steps;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
@@ -41,15 +42,9 @@ public class ReadPriceTableStepConfig {
 	@Autowired private PlatformTransactionManager platformTransactionManager;
 	@Autowired private PriceTable priceTable;
 
-	@Value("file:input/PriceTable.txt") 
+	@Value("file:input/*.prices") 
 	private Resource[] inputFile;
 
-	private Map<String,BigDecimal> realTimeAprAdjuster;
-
-	@PostConstruct
-	private void init() {
-		realTimeAprAdjuster = new ConcurrentHashMap<String, BigDecimal>();
-	}
 
 	//STEP1
 	@Bean
@@ -77,6 +72,9 @@ public class ReadPriceTableStepConfig {
 	 * Processor - modify records if needed (e.g., clean data, apply transformations)
 	 */
 	public PriceTableRecord processRecord(PriceTableRecord record) {
+		if(record.getSymbol().equals("USDT")||record.getSymbol().equals("USDC")) {
+			record.setPriceInEur(BigDecimal.ONE.divide(record.getPriceInEur(),16,RoundingMode.HALF_UP));
+		}
 		return record;
 	}
 	/**
@@ -91,7 +89,7 @@ public class ReadPriceTableStepConfig {
 
 		// Tokenize CSV fields
 		DelimitedLineTokenizer tokenizer = new DelimitedLineTokenizer();
-		tokenizer.setNames("Symbol","TimeStamp","PriceInEUR");
+		tokenizer.setNames("Symbol","Date","Open","High","Low","Close","Volume");
 		tokenizer.setDelimiter(","); // Ensure delimiter is correct
 
 		// Map CSV columns to the BinanceHistoryRecord object
@@ -100,12 +98,12 @@ public class ReadPriceTableStepConfig {
 			public PriceTableRecord mapFieldSet(FieldSet fieldSet) {
 				PriceTableRecord record = new PriceTableRecord();
 				// Custom parsing for LocalDateTime (using DateTimeFormatter)
-				String utcTimeString = fieldSet.readString("TimeStamp");
-				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");  // Adjust the format as per your data
+				String utcTimeString = fieldSet.readString("Date");
+				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");  // Adjust the format as per your data
 				record.setTime(LocalDateTime.parse(utcTimeString, formatter));
 				record.setSymbol(fieldSet.readString("Symbol"));
 				// Reading the change value as a string
-				String priceEURString = fieldSet.readString("PriceInEUR");
+				String priceEURString = fieldSet.readString("Close");
 				// Converting the string value to BigDecimal
 				BigDecimal priceEUR = new BigDecimal(priceEURString);
 				// Setting the BigDecimal value on the record

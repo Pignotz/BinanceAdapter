@@ -15,7 +15,7 @@ import jakarta.annotation.PostConstruct;
 public class PriceTable {
 
 	private List<PriceTableRecord> priceTableRecords;
-	private Map<String,Map<LocalDateTime,BigDecimal>> priceTableRecordsByTime;
+	private Map<String,Map<Integer,Map<Integer,Map<Integer,BigDecimal>>>> priceTableRecordsByTime;
 	private boolean isMapped;
 	
 	public PriceTable() {
@@ -38,33 +38,33 @@ public class PriceTable {
 		priceTableRecords.add(toAdd);
 	}
 	
-	public synchronized void mapWithTime() {
-		if(!isMapped) {
-			priceTableRecordsByTime = priceTableRecords.stream().collect(Collectors.groupingBy(r -> r.getSymbol(),Collectors.toMap(r->r.getTime(), r->r.getPriceInEur())));
-			isMapped=true;
-		}
-	}
+	public synchronized void mapWithTime() {if (!isMapped) {
+	    priceTableRecordsByTime = priceTableRecords.stream()
+	            .collect(Collectors.groupingBy(
+	                r -> r.getSymbol(),
+	                Collectors.groupingBy(
+	                    r -> r.getTime().getYear(),
+	                    Collectors.groupingBy(
+	                        r -> r.getTime().getMonthValue(),
+	                        Collectors.toMap(
+	                            r -> r.getTime().getDayOfMonth(),
+	                            r -> r.getPriceInEur()
+	                        )
+	                    )
+	                )
+	            ));
+	        isMapped = true;
+	    }
+}
 	
 	public BigDecimal getPrice(String coin, LocalDateTime time) {
-		mapWithTime();
-		Map<LocalDateTime,BigDecimal> priceByTime = priceTableRecordsByTime.get(coin);
-		if(priceByTime==null) {
-			throw new RuntimeException("No Price in EUR for coin: " + coin + " at time: " + time);
+		mapWithTime();try {
+			return priceTableRecordsByTime.get(coin).get(time.getYear()).get(time.getMonthValue()).get(time.getDayOfMonth());
+		}catch (NullPointerException e) {
+			System.out.println("NotFound "+coin + "at time "+time);
+			throw e;
 		}
-		BigDecimal price = priceByTime.get(time);
-		if(price==null) {
-			throw new RuntimeException("No Price in EUR for coin: " + coin + " at time: " + time);
-		}
-		return price;
-	}
-
-	public Map<String, Map<LocalDateTime, BigDecimal>> getPriceTableRecordsByTime() {
-		return priceTableRecordsByTime;
-	}
-
-	public void setPriceTableRecordsByTime(Map<String, Map<LocalDateTime, BigDecimal>> priceTableRecordsByTime) {
-		this.priceTableRecordsByTime = priceTableRecordsByTime;
-	}
+	}	
 
 	public boolean isMapped() {
 		return isMapped;
