@@ -45,9 +45,18 @@ public class TataxRecord {
 		switch (binanceHistoryRecord.getOperation().getTataxMapping()) {
 		case DECIDE_BASED_ON_AMOUNT: {
 			if(binanceHistoryRecord.getChange().compareTo(BigDecimal.ZERO)<0) {
-				this.movementType=TataxOperationType.DEBIT;
+				if(binanceHistoryRecord.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT)) {
+					this.movementType=TataxOperationType.WITHDRAWAL;
+
+				}else {
+					this.movementType=TataxOperationType.DEBIT;
+				}
 			}else {
-				this.movementType=TataxOperationType.CREDIT;
+				if(binanceHistoryRecord.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT)) {
+					this.movementType=TataxOperationType.DEPOSIT;
+				}else {
+					this.movementType=TataxOperationType.CREDIT;
+				}
 			}
 			break;
 		}

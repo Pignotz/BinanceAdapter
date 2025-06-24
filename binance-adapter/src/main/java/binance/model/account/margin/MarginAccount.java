@@ -167,14 +167,21 @@ public abstract class MarginAccount extends Account {
 							} else {
 								coinBalanceHistoryIterator.remove(); //Lo esaurirò tutto						
 							}
-							recordsForTatax.add(new TataxRecord(movement.getUtcTime(), coin, availableFromPrevSwapsToUse,bhr.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT) ? TataxOperationType.WITHDRAWAL : TataxOperationType.DEBIT,availableFromPrevSwapsToUse.multiply(previousTradePrice),coinBalanceEntry.getCounterValueCoin()));
+							if(!bhr.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT)) {
+								recordsForTatax.add(new TataxRecord(movement.getUtcTime(), coin, availableFromPrevSwapsToUse, TataxOperationType.DEBIT,availableFromPrevSwapsToUse.multiply(previousTradePrice),coinBalanceEntry.getCounterValueCoin()));
+							}
 							amountToExhaust = amountToExhaust.subtract(availableFromPrevSwapsToUse);
 							if(amountToExhaust.compareTo(BigDecimal.ZERO)<0) throw new RuntimeException();
 						}
 						//Poi prelevo dal capitale precedentemente trasferito ma non impiegato
 						if(amountToExhaust.compareTo(BigDecimal.ZERO)<0) throw new RuntimeException();
 						if(amountToExhaust.compareTo(BigDecimal.ZERO)>0) {
-							recordsForTatax.add(new TataxRecord(movement.getUtcTime(), coin, amountToExhaust, bhr.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT) ? TataxOperationType.WITHDRAWAL : TataxOperationType.DEBIT));
+							if(!bhr.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT)) {
+								recordsForTatax.add(new TataxRecord(movement.getUtcTime(), coin, amountToExhaust,  TataxOperationType.DEBIT));
+							}
+						}
+						if(bhr.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT)) {
+							recordsForTatax.add(new TataxRecord(movement.getUtcTime(),coin,bhr.getChange().negate(),TataxOperationType.WITHDRAWAL));
 						}
 					}
 					break;
