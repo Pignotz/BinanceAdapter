@@ -91,7 +91,7 @@ public class ReadPriceTableStepConfig {
 
 		// Tokenize CSV fields
 		DelimitedLineTokenizer tokenizer = new DelimitedLineTokenizer();
-		tokenizer.setNames("TimeStamp","Symbol","PriceInEUR");
+		tokenizer.setNames("Symbol","TimeStamp","PriceInEUR");
 		tokenizer.setDelimiter(","); // Ensure delimiter is correct
 
 		// Map CSV columns to the BinanceHistoryRecord object
@@ -100,7 +100,7 @@ public class ReadPriceTableStepConfig {
 			public PriceTableRecord mapFieldSet(FieldSet fieldSet) {
 				PriceTableRecord record = new PriceTableRecord();
 				// Custom parsing for LocalDateTime (using DateTimeFormatter)
-				String utcTimeString = fieldSet.readString("utcTime");
+				String utcTimeString = fieldSet.readString("TimeStamp");
 				DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");  // Adjust the format as per your data
 				record.setTime(LocalDateTime.parse(utcTimeString, formatter));
 				record.setSymbol(fieldSet.readString("Symbol"));

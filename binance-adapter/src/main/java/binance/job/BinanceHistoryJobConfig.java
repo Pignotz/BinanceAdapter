@@ -217,11 +217,12 @@ public class BinanceHistoryJobConfig {
 		List<TataxRecord> tataxAdaptedRecords = tataxRecords.stream().sorted(comparator).collect(Collectors.toList());
 		writeFile(subFolder,fileName, tataxAdaptedRecords);
 		if(computeTotalEUR) {
-			tataxAdaptedRecords.stream().map(r -> {
+			BigDecimal totProfitOrLoss = tataxAdaptedRecords.stream().map(r -> {
 				BigDecimal q = r.getMovementType().getDoNegateAmount() ? r.getQuantity().negate() : r.getQuantity();
 				return q.multiply(priceTable.getPrice(r.getSymbol(), r.getTimeStamp()));
 			})
 			.reduce(BigDecimal.ZERO, BigDecimal::add);
+			logger.info("{} - tot profit or loss = {}",fileName, totProfitOrLoss);
 		}
 
 		
