@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
+import binance.model.account.margin.CrossMarginAccount;
 import binance.model.account.margin.IsolatedMarginAccount;
 import binance.struct.BinanceHistoryRecord;
 import binance.struct.BinanceOperationType;
@@ -83,6 +84,30 @@ class MarginAccountTest {
 
 		assertEquals(0, BigDecimal.valueOf(0.15).compareTo(total));
 
+	}
+	
+	@Test
+	void testDebug() {
+		CrossMarginAccount crossMarginAccount = new CrossMarginAccount();
+		
+		crossMarginAccount.addRecord(new BinanceHistoryRecord(",2023-11-19 21:25:27,Cross Margin,Transfer Between Main Account/Futures and Margin Account,USDT,2413.35471521,"));
+
+		crossMarginAccount.addRecord(new BinanceHistoryRecord(",2023-11-19 22:13:32,Cross Margin,Margin Loan,SOL,120.00000000,"));
+		crossMarginAccount.addRecord(new BinanceHistoryRecord(",2023-11-19 22:13:33,Cross Margin,Transaction Revenue,USDT,7314.00000000,"));
+		crossMarginAccount.addRecord(new BinanceHistoryRecord(",2023-11-19 22:13:33,Cross Margin,Transaction Sold,SOL,-120.00000000,"));
+		crossMarginAccount.addRecord(new BinanceHistoryRecord(",2023-11-19 23:07:30,Cross Margin,Transaction Buy,SOL,120.00000000,"));
+		crossMarginAccount.addRecord(new BinanceHistoryRecord(",2023-11-19 23:07:30,Cross Margin,Transaction Spend,USDT,-7416.00000000,"));
+		crossMarginAccount.addRecord(new BinanceHistoryRecord(",2023-11-19 23:07:31,Cross Margin,Margin Repayment,SOL,-120.00000000,"));
+		
+		
+		
+		crossMarginAccount.computePlusMinus();
+		System.out.println("Done");
+		
+		
+		
+
+		
 	}
 	
 	@Test

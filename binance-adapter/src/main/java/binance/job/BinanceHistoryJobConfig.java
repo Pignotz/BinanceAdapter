@@ -176,7 +176,7 @@ public class BinanceHistoryJobConfig {
 								throw new RuntimeException(e1);
 							}
 						});
-						Map<Integer, List<TataxRecord>> crossMarginTataxRecords = crossMarginAccount.getProfitAndLosses().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
+						Map<Integer, List<TataxRecord>> crossMarginTataxRecords = crossMarginAccount.getTataxRecords().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
 						crossMarginTataxRecords.entrySet().stream().forEach(entry -> {
 							try {
 								writeFileTataxRecordComparator(formattedDate,formattedDate+"_CrossMarginMyCoins"+entry.getKey()+".csv", entry.getValue(), (TataxRecord e1, TataxRecord e2)-> {

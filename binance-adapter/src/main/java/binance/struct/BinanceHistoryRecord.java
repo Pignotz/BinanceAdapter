@@ -32,6 +32,39 @@ public class BinanceHistoryRecord implements Comparable<BinanceHistoryRecord>, U
     	
     }
     
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    // Costruttore da CSV (senza userId, lo lasci a null o setti dopo)
+    public BinanceHistoryRecord(String csvLine) {
+        // csvLine esempio:
+        // ,"2023-11-19 22:13:32","Cross Margin","Margin Loan","SOL","120.00000000",
+        // splitto per virgola esterna, rimuovendo virgolette e spazi inutili
+
+        // Prima rimuovo la prima virgola se presente (la colonna userId è vuota)
+        if (csvLine.startsWith(",")) {
+            csvLine = csvLine.substring(1);
+        }
+
+        // split con virgola ma considerando che i campi sono racchiusi da doppi apici
+        // quindi split semplice può creare problemi se ci fossero virgole nel remark
+        // se i dati sono sempre ben formati, puoi fare:
+        String[] parts = csvLine.split(",");
+
+//        // Rimuovo eventuali virgolette residue
+//        for (int i = 0; i < parts.length; i++) {
+//            parts[i] = parts[i].replaceAll("^\"|\"$", "");
+//        }
+
+        this.userId = null; // o setta se hai userId altrove
+
+        this.utcTime = LocalDateTime.parse(parts[0], FORMATTER);
+        this.account = parts[1];
+        this.operation = BinanceOperationType.fromDisplayName(parts[2]); // supponendo metodo statico di parsing
+        this.coin = parts[3];
+        this.change = BigDecimal.valueOf(Double.valueOf(parts[4]));
+        this.remark = parts.length > 5 ? parts[5] : null;
+    }
+    
     
     
 	private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
