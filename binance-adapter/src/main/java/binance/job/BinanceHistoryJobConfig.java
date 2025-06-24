@@ -42,6 +42,7 @@ import binance.job.steps.ValidateStepConfig;
 import binance.model.BinanceHistoryRecordList;
 import binance.model.account.margin.CrossMarginAccount;
 import binance.model.account.margin.IsolatedMarginAccount;
+import binance.model.account.spot.SpotAccount;
 import binance.prices.PriceTable;
 import binance.struct.BinanceHistoryRecord;
 import binance.struct.TataxRecord;
@@ -65,6 +66,7 @@ public class BinanceHistoryJobConfig {
 	@Autowired private ComputePlusMinusStepConfig computePlusMinusStepConfig;
 	@Autowired private BinanceHistoryRecordList binanceHistoryRecordList;
 
+	@Autowired private SpotAccount spotAccount;
 	@Autowired private CrossMarginAccount crossMarginAccount;
 	@Autowired private IsolatedMarginAccount isolatedMarginAccount;
 	@Autowired private PriceTable priceTable;
@@ -130,7 +132,31 @@ public class BinanceHistoryJobConfig {
 								throw new RuntimeException(e1);
 							}
 						});
-
+						//SPOT
+						recordsPerYear = spotAccount.getRecords().stream().collect(Collectors.groupingBy(e -> e.getUtcTime().getYear()));
+						recordsPerYear.entrySet().forEach(entry -> {
+							try {
+								writeFileBinanceComparator(formattedDate,formattedDate+"_SpotTransactions"+entry.getKey()+".csv", entry.getValue(), (BinanceHistoryRecord e1, BinanceHistoryRecord e2)-> {
+									int delta = e1.getUtcTime().compareTo(e2.getUtcTime());
+									if(delta==0) {
+										delta = e2.getChange().compareTo(e1.getChange());
+									}
+									return delta;
+								}, true);
+								writeFileBinanceComparator(formattedDate, formattedDate+"_SpotTransactionsNotAdapted"+entry.getKey()+".csv",entry.getValue(), (BinanceHistoryRecord e1, BinanceHistoryRecord e2)-> {
+									int delta = e1.getUtcTime().compareTo(e2.getUtcTime());
+									if(delta==0) {
+										delta = e2.getChange().compareTo(e1.getChange());
+									}
+									return delta;
+								},false);
+							} catch (IOException e1) {
+								logger.error(e1.getMessage(),e1);
+								throw new RuntimeException(e1);
+							}
+						});
+						
+						
 						Map<Integer, List<TataxRecord>> crossMarginPAndL = crossMarginAccount.getProfitAndLosses().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
 						crossMarginPAndL.entrySet().stream().forEach(entry -> {
 							try {

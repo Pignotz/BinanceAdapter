@@ -21,7 +21,7 @@ public class CoinBalance {
 	
 	public void addCoinBalanceEntry(String coin, BigDecimal amount, String counterValueCoin, BigDecimal counterValueAmount) {
 
-		balanceHistory.add(new CoinBalanceEntry(coin, amount, counterValueCoin, counterValueAmount));
+		balanceHistory.add(0,new CoinBalanceEntry(coin, amount, counterValueCoin, counterValueAmount));
 		
 	}	
 	

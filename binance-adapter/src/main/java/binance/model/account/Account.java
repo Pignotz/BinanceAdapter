@@ -64,6 +64,12 @@ public class Account {
 			logger.log(Level.ALL, "Final {} balance for Account {} is {}", finalAmountEntry.getKey(), this.accountType, finalAmountEntry.getValue());
 		}
 	}
+
+	public List<BinanceHistoryRecord> getRecords() {
+		return records;
+	}
+	
+	
 	
 	
 	

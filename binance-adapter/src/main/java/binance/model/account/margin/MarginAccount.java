@@ -155,6 +155,7 @@ public abstract class MarginAccount extends Account {
 								break;
 							}
 							CoinBalanceEntry coinBalanceEntry = coinBalanceHistoryIterator.next();
+							
 							BigDecimal availableFromPrevSwaps = coinBalanceEntry.getAmount();
 							BigDecimal availableFromPrevSwapsToUse = coinBalanceEntry.getAmount();
 							BigDecimal previousTradePrice = coinBalanceEntry.getPriceOfIncomeCoin(); //Quanti USDC per 1 BTC
@@ -281,7 +282,7 @@ public abstract class MarginAccount extends Account {
 							} else {
 								coinBalanceHistoryIterator.remove(); //Lo scambierò tutto
 							}
-							logger.info("... ... di cui {} ottenuti da precedenti scambi con {}", usedPreviouslyBoughtAmount, correspondingPreviouslySoldAmountPortion);
+							logger.info("... ... di cui {} ottenuti da precedenti scambi con {} {}", usedPreviouslyBoughtAmount, correspondingPreviouslySoldAmountPortion, coinBalanceEntry.getCounterValueCoin());
 							BigDecimal boughtAmountToConsider = usedPreviouslyBoughtAmount.multiply(soldCoinPrice);
 							if(soldCoinPrice.compareTo(previousTradePrice)>=0) {
 								// allora quando avevo venduto i.e. 1 BTC li avevo venduti ad un prezzo più alto di quello a cui li sto ricomprando ora
@@ -407,6 +408,7 @@ public abstract class MarginAccount extends Account {
 						if(amountToExhaust.compareTo(BigDecimal.ZERO)<0) {
 							throw new RuntimeException();
 						}
+						
 					}
 					if(amountToExhaust.compareTo(BigDecimal.ZERO)<0) {
 						throw new RuntimeException();
