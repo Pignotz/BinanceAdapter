@@ -47,6 +47,7 @@ import binance.model.account.spot.SpotAccount;
 import binance.prices.PriceTable;
 import binance.struct.BinanceHistoryRecord;
 import binance.struct.TataxRecord;
+import binance.struct.TataxRecordComparator;
 import jakarta.annotation.PostConstruct;
 
 @Component
@@ -71,22 +72,9 @@ public class BinanceHistoryJobConfig {
 	@Autowired private CrossMarginAccount crossMarginAccount;
 	@Autowired private IsolatedMarginAccount isolatedMarginAccount;
 	@Autowired private PriceTable priceTable;
-	
-	private Comparator<TataxRecord> tataxRecordComparator;
 
-	@PostConstruct
-	private void init() {
-		tataxRecordComparator = (TataxRecord e1, TataxRecord e2)-> {
-			int delta = e1.getTimeStamp().compareTo(e2.getTimeStamp());
-			if(delta==0) {
-				delta = e2.getMovementType().compareTo(e1.getMovementType());
-			}
-			if(delta==0) {
-				delta = e2.getSymbol().compareTo(e1.getSymbol());
-			}
-			return delta;
-		};
-	}
+
+
 
 	@Bean
 	public Job binanceHistoryJob() {
@@ -174,7 +162,7 @@ public class BinanceHistoryJobConfig {
 						Map<Integer, List<TataxRecord>> crossMarginPAndL = crossMarginAccount.getProfitAndLosses().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
 						crossMarginPAndL.entrySet().stream().forEach(entry -> {
 							try {
-								writeFileTataxRecordComparator(formattedDate,formattedDate+"_CrossMarginProfit&Losses"+entry.getKey()+".csv", entry.getValue(), tataxRecordComparator,true);
+								writeFileTataxRecordComparator(formattedDate,formattedDate+"_CrossMarginProfit&Losses"+entry.getKey()+".csv", entry.getValue(), new TataxRecordComparator(),true);
 							} catch (IOException e1) {
 								logger.error(e1.getMessage(),e1);
 								throw new RuntimeException(e1);
@@ -183,7 +171,7 @@ public class BinanceHistoryJobConfig {
 						Map<Integer, List<TataxRecord>> crossMarginTataxRecords = crossMarginAccount.getTataxRecords().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
 						crossMarginTataxRecords.entrySet().stream().forEach(entry -> {
 							try {
-								writeFileTataxRecordComparator(formattedDate,formattedDate+"_CrossMarginMyCoins"+entry.getKey()+".csv", entry.getValue(), tataxRecordComparator,false);
+								writeFileTataxRecordComparator(formattedDate,formattedDate+"_CrossMarginMyCoins"+entry.getKey()+".csv", entry.getValue(), new TataxRecordComparator(),false);
 							} catch (IOException e1) {
 								logger.error(e1.getMessage(),e1);
 								throw new RuntimeException(e1);
@@ -194,16 +182,16 @@ public class BinanceHistoryJobConfig {
 						Map<Integer, List<TataxRecord>> isolatedMarginPAndL = isolatedMarginAccount.getProfitAndLosses().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
 						isolatedMarginPAndL.entrySet().stream().forEach(entry -> {
 							try {
-								writeFileTataxRecordComparator(formattedDate,formattedDate+"_IsolatedMarginProfit&Losses"+entry.getKey()+".csv", entry.getValue(), tataxRecordComparator,true);
+								writeFileTataxRecordComparator(formattedDate,formattedDate+"_IsolatedMarginProfit&Losses"+entry.getKey()+".csv", entry.getValue(), new TataxRecordComparator(),true);
 							} catch (IOException e1) {
 								logger.error(e1.getMessage(),e1);
 								throw new RuntimeException(e1);
 							}
 						});
-						Map<Integer, List<TataxRecord>> isolatedMarginTataxRecords = isolatedMarginAccount.getProfitAndLosses().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
+						Map<Integer, List<TataxRecord>> isolatedMarginTataxRecords = isolatedMarginAccount.getTataxRecords().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
 						isolatedMarginTataxRecords.entrySet().stream().forEach(entry -> {
 							try {
-								writeFileTataxRecordComparator(formattedDate,formattedDate+"_IsolatedMarginMyCoins"+entry.getKey()+".csv", entry.getValue(), tataxRecordComparator,false);
+								writeFileTataxRecordComparator(formattedDate,formattedDate+"_IsolatedMarginMyCoins"+entry.getKey()+".csv", entry.getValue(), new TataxRecordComparator(),false);
 							} catch (IOException e1) {
 								logger.error(e1.getMessage(),e1);
 								throw new RuntimeException(e1);
@@ -217,7 +205,7 @@ public class BinanceHistoryJobConfig {
 	
 	
 	private void writeFileTataxRecordComparator(String subFolder, String fileName,
-			List<TataxRecord> tataxRecords, Comparator<TataxRecord> comparator,boolean computeTotalEUR) throws IOException {
+			List<TataxRecord> tataxRecords, TataxRecordComparator comparator,boolean computeTotalEUR) throws IOException {
 		List<TataxRecord> tataxAdaptedRecords = tataxRecords.stream().sorted(comparator).collect(Collectors.toList());
 		writeFile(subFolder,fileName, tataxAdaptedRecords);
 		if(computeTotalEUR) {

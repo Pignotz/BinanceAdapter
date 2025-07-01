@@ -89,11 +89,11 @@ public class AggregateAssignStepConfig {
 							}
 						}
 						binanceHistoryRecordList.clear();
+						aggregateList = aggregateList.stream().filter(r -> r.getChange().compareTo(BigDecimal.ZERO)!=0).collect(Collectors.toList());
 						binanceHistoryRecordList.addAll(aggregateList);
 						logger.info("AGGREGATED RECORDS COUNT = {}", aggregateList.size());
-
-						//TODO Assign
-						binanceHistoryRecordList.stream().forEach(r -> {
+						
+						binanceHistoryRecordList.stream().sorted().forEach(r -> {
 							AccountType accountType = r.getAccountType();
 							switch (accountType) {
 							case SPOT:
