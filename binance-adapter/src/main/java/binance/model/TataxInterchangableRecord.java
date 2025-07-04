@@ -8,7 +8,7 @@ public class TataxInterchangableRecord {
 	private final TataxRecord record2;
 	private TataxInterchangableRecord dependentRecord;
 	private boolean choose2 = false;
-	
+	private boolean canSwap = true;
 	private int numOfChoseChanges = 0;
 
 	public TataxInterchangableRecord(TataxRecord record1, TataxRecord record2) {
@@ -76,6 +76,10 @@ public class TataxInterchangableRecord {
 
 	public TataxInterchangableRecord getDependentRecord() {
 		return dependentRecord;
+	}
+
+	public boolean hasRecord2() {
+		return record2!=null;
 	}
 
 	

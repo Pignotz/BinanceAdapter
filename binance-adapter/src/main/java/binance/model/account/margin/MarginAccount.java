@@ -4,9 +4,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.Logger;
@@ -26,7 +28,7 @@ import binance.struct.UtcTimedRecordWithMovement;
 
 public abstract class MarginAccount extends Account {
 
-	protected List<TataxInterchangableRecord> recordsForTatax;
+	protected List<TataxRecord> recordsForTatax;
 
 	protected Map<String,BigDecimal> balanceAvailableLoans;
 
@@ -38,7 +40,7 @@ public abstract class MarginAccount extends Account {
 
 	public MarginAccount(AccountType accountType, Logger logger) {
 		super(accountType, logger);
-		recordsForTatax = new ArrayList<TataxInterchangableRecord>();
+		recordsForTatax = new ArrayList<TataxRecord>();
 		balanceAvailableLoans = new HashMap<String, BigDecimal>();
 		profitAndLosses = new ArrayList<TataxRecord>();
 		pricedCoinBalancesByCoinBoughtForProfitAndLoss = new HashMap<String, CoinBalance>();
@@ -128,8 +130,13 @@ public abstract class MarginAccount extends Account {
 			}
 		}
 
+		
+		Map<String,BigDecimal> balance = new HashMap<String, BigDecimal>();
+
+		
 		for (int i = 0; i < movements.size(); i++) {
 			UtcTimedRecordWithMovement movement = movements.get(i);
+			List<TataxRecord> wrkTataxInterchangableRecords= new ArrayList<TataxRecord>();
 			logger.info("Movimento corrente: {}",movement.toReadableString());
 			if(!movement.isSwap()) {
 				BinanceHistoryRecord bhr = (BinanceHistoryRecord) movement;
@@ -146,10 +153,8 @@ public abstract class MarginAccount extends Account {
 				case BNB_FEE_DEDUCTION:
 				case ISOLATED_MARGIN_LIQUIDATION_FEE:
 					if(bhr.getChange().compareTo(BigDecimal.ZERO)>0) {
-						recordsForTatax.add(
-								new TataxInterchangableRecord(
-										new TataxRecord(movement.getUtcTime(), coin, bhr.getChange(), TataxOperationType.DEPOSIT)
-										));
+						wrkTataxInterchangableRecords.add(
+										new TataxRecord(movement.getUtcTime(), coin, bhr.getChange(), TataxOperationType.DEPOSIT));
 					} else {
 						BigDecimal amountToExhaust = bhr.getChange().negate();
 						//Prima prelevo dal capitale usato per gli scambi
@@ -173,7 +178,7 @@ public abstract class MarginAccount extends Account {
 								coinBalanceHistoryIterator.remove(); //Lo esaurirò tutto						
 							}
 							if(!bhr.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT)) {
-								recordsForTatax.add(new TataxInterchangableRecord(new TataxRecord(movement.getUtcTime(), coin, availableFromPrevSwapsToUse, TataxOperationType.DEBIT,availableFromPrevSwapsToUse.multiply(previousTradePrice),coinBalanceEntry.getCounterValueCoin())));
+								wrkTataxInterchangableRecords.add(new TataxRecord(movement.getUtcTime(), coin, availableFromPrevSwapsToUse, TataxOperationType.DEBIT,availableFromPrevSwapsToUse.multiply(previousTradePrice),coinBalanceEntry.getCounterValueCoin()));
 							}
 							amountToExhaust = amountToExhaust.subtract(availableFromPrevSwapsToUse);
 							if(amountToExhaust.compareTo(BigDecimal.ZERO)<0) throw new RuntimeException();
@@ -182,12 +187,11 @@ public abstract class MarginAccount extends Account {
 						if(amountToExhaust.compareTo(BigDecimal.ZERO)<0) throw new RuntimeException();
 						if(amountToExhaust.compareTo(BigDecimal.ZERO)>0) {
 							if(!bhr.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT)) {
-								recordsForTatax.add(
-										new TataxInterchangableRecord(new TataxRecord(movement.getUtcTime(), coin, amountToExhaust,  TataxOperationType.DEBIT)));
+								wrkTataxInterchangableRecords.add(new TataxRecord(movement.getUtcTime(), coin, amountToExhaust,  TataxOperationType.DEBIT));
 							}
 						}
 						if(bhr.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT)) {
-							recordsForTatax.add(new TataxInterchangableRecord(new TataxRecord(movement.getUtcTime(),coin,bhr.getChange().negate(),TataxOperationType.WITHDRAWAL)));
+							wrkTataxInterchangableRecords.add(new TataxRecord(movement.getUtcTime(),coin,bhr.getChange().negate(),TataxOperationType.WITHDRAWAL));
 						}
 					}
 					break;
@@ -231,8 +235,7 @@ public abstract class MarginAccount extends Account {
 				if(amountToExhaust.compareTo(BigDecimal.ZERO)<0) throw new RuntimeException();
 				if(amountToExhaust.compareTo(BigDecimal.ZERO)>0) {
 					//ed in secondo luogo dalle mie monete aggiungendo il tatax debit
-					recordsForTatax.add(new TataxInterchangableRecord(new TataxRecord(movement.getUtcTime(), coin, amountToExhaust, TataxOperationType.DEBIT)));		
-
+					wrkTataxInterchangableRecords.add(new TataxRecord(movement.getUtcTime(), coin, amountToExhaust, TataxOperationType.DEBIT));		
 				}
 				break;
 				default:
@@ -252,13 +255,14 @@ public abstract class MarginAccount extends Account {
 
 				BigDecimal soldCoinPrice = operation.getPriceOfSoldCoin(); //i.e. quanti USDC per 1 BTC?
 				BigDecimal amountSold = operation.getAmountSold(); //i.e. quanti USDC Venduti?
-
+				BigDecimal amountBought = operation.getAmountBought();
 				BigDecimal amountAvailableFromLoans = balanceAvailableLoans.get(coinSold);
 				BigDecimal actualAmountFromLoansSold;
 				BigDecimal nonLoanedCoinSold = amountSold.negate().subtract(amountAvailableFromLoans);
 
-				if(nonLoanedCoinSold.compareTo(BigDecimal.ZERO)>=0) {
+				if(nonLoanedCoinSold.compareTo(BigDecimal.ZERO)>0) {
 					logger.info("... sto utilizzando {} {} dal denaro non preso in prestito per la vendita", nonLoanedCoinSold, operation.getCoinSold());
+					
 					actualAmountFromLoansSold = amountAvailableFromLoans;
 					//Allora ho un residuo non prestato da vendere
 					//Delle nonLoanedCoinSold una parte potrebbero derivare dai miei trasferimenti,
@@ -266,6 +270,7 @@ public abstract class MarginAccount extends Account {
 					BigDecimal actualSoldAmountFromPreviousSwaps = BigDecimal.ZERO;
 					List<CoinBalanceEntry> coinBalanceHistory = pricedCoinBalancesByCoinBoughtForProfitAndLoss.get(coinSold).getBalanceHistory();
 					Iterator<CoinBalanceEntry> coinBalanceHistoryIterator = coinBalanceHistory.iterator();
+					BigDecimal totalPrevSoldAmount = BigDecimal.ZERO;
 					while(coinBalanceHistoryIterator.hasNext()) { //Per P&L
 						if(actualSoldAmountFromPreviousSwaps.compareTo(nonLoanedCoinSold)==0) {
 							break;
@@ -295,7 +300,8 @@ public abstract class MarginAccount extends Account {
 							} else {
 								coinBalanceHistoryIterator.remove(); //Lo scambierò tutto
 							}
-							logger.info("... ... di cui {} ottenuti da precedenti scambi con {} {}", usedPreviouslyBoughtAmount, correspondingPreviouslySoldAmountPortion, coinBalanceEntry.getCounterValueCoin());
+							logger.info("... ... di cui {} ottenuti da precedenti scambi con {} {} {}", usedPreviouslyBoughtAmount, correspondingPreviouslySoldAmountPortion, coinBalanceEntry.getCounterValueCoin(), coinBalanceEntry.getPriceOfIncomeCoin());
+							totalPrevSoldAmount = totalPrevSoldAmount.add(correspondingPreviouslySoldAmountPortion);
 							BigDecimal boughtAmountToConsider = usedPreviouslyBoughtAmount.multiply(soldCoinPrice);
 							if(soldCoinPrice.compareTo(previousTradePrice)>=0) {
 								// allora quando avevo venduto i.e. 1 BTC li avevo venduti ad un prezzo più alto di quello a cui li sto ricomprando ora
@@ -306,87 +312,52 @@ public abstract class MarginAccount extends Account {
 								}
 
 								BigDecimal profitInPrevBought =  profitInPrevSold.divide(soldCoinPrice,CommonDef.BIG_DECIMAL_DIVISION_SCALE, RoundingMode.HALF_UP);
-								profitAndLosses.add(new TataxRecord(operation.getUtcTime(), previouslyBoughtCoin, profitInPrevBought, TataxOperationType.CREDIT));
-								recordsForTatax.add(
-										new TataxInterchangableRecord(
-												new TataxRecord(operation.getUtcTime(), previouslySoldCoin, profitInPrevSold, TataxOperationType.CREDIT),
-												new TataxRecord(movement.getUtcTime(),previouslyBoughtCoin,profitInPrevBought,TataxOperationType.CREDIT)
-												));
+								TataxRecord profitTataxRecord = new TataxRecord(operation.getUtcTime(),previouslyBoughtCoin,profitInPrevBought,TataxOperationType.CREDIT,BigDecimal.valueOf(0),"EUR",true);
+								//profitAndLosses.add(profitTataxRecord);
+								wrkTataxInterchangableRecords.add(profitTataxRecord);
+
 							} else {
 								// allora quando avevo venduto i.e. 1 BTC li avevo venduti ad un prezzo più basso di quello a cui li sto ricomprando ora
 								//Quindi dovrei realizzare un loss //TODO Verify!!!
 								BigDecimal loss = boughtAmountToConsider.subtract(correspondingPreviouslySoldAmountPortion);
 								if(loss.compareTo(BigDecimal.ZERO)>0) {
-									throw new RuntimeException("Profit can't be positive value is: "+ loss.toString());
+									throw new RuntimeException("Loss can't be positive value is: "+ loss.toString());
 								}
-								profitAndLosses.add(new TataxRecord(operation.getUtcTime(), previouslySoldCoin, loss.negate(), TataxOperationType.DEBIT));
+								TataxRecord lossTataxRecord = new TataxRecord(operation.getUtcTime(), previouslySoldCoin, loss.negate(), TataxOperationType.DEBIT,BigDecimal.valueOf(0),"EUR");
+								profitAndLosses.add(lossTataxRecord);
+								//wrkTataxInterchangableRecords.add(lossTataxRecord);
 							}
 							if(stop) break;
 						}
 					}
+					
 					if(actualSoldAmountFromPreviousSwaps.compareTo(BigDecimal.ZERO)>0) {
 						pricedCoinBalancesByCoinBoughtForProfitAndLoss.get(coinBought).addCoinBalanceEntry(coinBought, actualSoldAmountFromPreviousSwaps.multiply(soldCoinPrice), coinSold, actualSoldAmountFromPreviousSwaps);
 					}
-					//					//Qui gestisco i dati per i repayments
-					//					BigDecimal actualSoldAmountFromPreviousSwaps2 = BigDecimal.ZERO;
-					//					coinBalanceHistory = pricedCoinBalancesByCoinBoughtForRepayments.get(coinSold).getBalanceHistory();
-					//					coinBalanceHistoryIterator = coinBalanceHistory.iterator();
-					//					while(coinBalanceHistoryIterator.hasNext()) { //Per P&L
-					//						if(actualSoldAmountFromPreviousSwaps2.compareTo(nonLoanedCoinSold)==0) {
-					//							break;
-					//						}
-					//						CoinBalanceEntry coinBalanceEntry = coinBalanceHistoryIterator.next();
-					//						BigDecimal previouslyBoughtAmount = coinBalanceEntry.getAmount();
-					//						String previouslyBoughtCoin = coinBalanceEntry.getCoin();
-					//						BigDecimal previouslySoldAmount = coinBalanceEntry.getCounterValueAmount();
-					//						String previouslySoldCoin = coinBalanceEntry.getCounterValueCoin(); //i.e. BTC
-					//
-					//						boolean stop = false;
-					//						if(previouslySoldCoin.equals(coinBought)) {
-					//							actualSoldAmountFromPreviousSwaps2 = actualSoldAmountFromPreviousSwaps2.add(previouslyBoughtAmount);
-					//							//A che prezzo il previouslySwappedAmount è stato scambiato?
-					//							BigDecimal previousTradePrice = coinBalanceEntry.getPriceOfIncomeCoin(); //Quanti USDC per 1 BTC
-					//							BigDecimal soldPreviouslyBoughtAmount = previouslyBoughtAmount;
-					//							BigDecimal correspondingPreviouslySoldAmountPortion = previouslySoldAmount;
-					//							if(actualSoldAmountFromPreviousSwaps2.compareTo(nonLoanedCoinSold)>0) { //Allora sto prendendo troppo da actualSoldAmountFromPricedCoinBalances
-					//								soldPreviouslyBoughtAmount = previouslyBoughtAmount.subtract(actualSoldAmountFromPreviousSwaps2.subtract(nonLoanedCoinSold));
-					//								coinBalanceEntry.setAmount(previouslyBoughtAmount.subtract(soldPreviouslyBoughtAmount));
-					//								coinBalanceEntry.setCounterValueAmount(coinBalanceEntry.getAmount().multiply(previousTradePrice));
-					//								correspondingPreviouslySoldAmountPortion = soldPreviouslyBoughtAmount.multiply(previousTradePrice);
-					//								actualSoldAmountFromPreviousSwaps2 = nonLoanedCoinSold;
-					//								stop = true;
-					//							} else {
-					//								coinBalanceHistoryIterator.remove(); //Lo scambierò tutto
-					//							}
-					//							if(stop) break;
-					//						}
-					//					}
 
 					//Qui gestisco l'eventuale residuo degli spostamenti delle mie coin: le tratto come trasferimenti spot da inserire in TATAX
 					BigDecimal myCoinAmountSold = nonLoanedCoinSold.subtract(actualSoldAmountFromPreviousSwaps);
 					if(myCoinAmountSold.compareTo(BigDecimal.ZERO)<0) throw new RuntimeException();
+					BigDecimal creditAmount = BigDecimal.ZERO;
 					if(myCoinAmountSold.compareTo(BigDecimal.ZERO)>0) {
 						logger.info("... ... di cui {} utilizzando il mio capitale effettivo non preso in prestito e non derivante da scambi con denaro preso in prestito", myCoinAmountSold);
 
 						//TODO Verify
 						TataxRecord debitRecordForTatax = new TataxRecord(movement.getUtcTime(), operation.getCoinSold(), myCoinAmountSold, TataxOperationType.DEBIT);
-						TataxRecord debitRecordForTatax2 = new TataxRecord(movement.getUtcTime(), operation.getCoinBought(), myCoinAmountSold.multiply(soldCoinPrice), TataxOperationType.DEBIT);
-						TataxInterchangableRecord tataxInterchangableRecord1 = new TataxInterchangableRecord(
-								debitRecordForTatax,
-								debitRecordForTatax2
-								);
+						//TataxRecord debitRecordForTatax2 = new TataxRecord(movement.getUtcTime(), operation.getCoinBought(), myCoinAmountSold.multiply(soldCoinPrice), TataxOperationType.DEBIT,"MyCoinsChosable");
 						//TODO Verify
-						BigDecimal creditAmount = myCoinAmountSold.multiply(soldCoinPrice);
-						TataxRecord creditRecordForTatax = new TataxRecord(movement.getUtcTime(),operation.getCoinBought(),creditAmount,TataxOperationType.CREDIT);
-						TataxRecord creditRecordForTatax2 = new TataxRecord(movement.getUtcTime(),operation.getCoinSold(),myCoinAmountSold,TataxOperationType.CREDIT);
-						TataxInterchangableRecord tataxInterchangableRecord2 = new TataxInterchangableRecord(
-								creditRecordForTatax,
-								creditRecordForTatax2
-								);
-						tataxInterchangableRecord1.addDependent(tataxInterchangableRecord2);
-						tataxInterchangableRecord2.addDependent(tataxInterchangableRecord1);
-						recordsForTatax.add(tataxInterchangableRecord2);
-						recordsForTatax.add(tataxInterchangableRecord1);
+						creditAmount = myCoinAmountSold.multiply(soldCoinPrice);
+						TataxRecord creditRecordForTatax = new TataxRecord(movement.getUtcTime(),operation.getCoinBought(),creditAmount,TataxOperationType.CREDIT,BigDecimal.valueOf(0),"EUR");
+						//TataxRecord creditRecordForTatax2 = new TataxRecord(movement.getUtcTime(),operation.getCoinSold(),myCoinAmountSold,TataxOperationType.CREDIT,"MyCoinsChosable");
+					
+						wrkTataxInterchangableRecords.add(creditRecordForTatax);
+						wrkTataxInterchangableRecords.add(debitRecordForTatax);
+					}
+					BigDecimal residualBoughtAmount = amountBought.subtract(totalPrevSoldAmount);
+					residualBoughtAmount = residualBoughtAmount.subtract(creditAmount);
+				//	residualBoughtAmount = residualBoughtAmount.subtract(actualAmountFromLoansSold.multiply(soldCoinPrice));
+					if(residualBoughtAmount.compareTo(CommonDef.acceptedError)>0) {
+						recordsForTatax.add(new TataxRecord(movement.getUtcTime(),coinBought,residualBoughtAmount,TataxOperationType.CREDIT,BigDecimal.valueOf(0),"EUR"));
 					}
 				} else {
 					actualAmountFromLoansSold = amountSold.negate();
@@ -447,11 +418,33 @@ public abstract class MarginAccount extends Account {
 					}
 					if(amountToExhaust.compareTo(BigDecimal.ZERO)>0) {
 						//ed in secondo luogo dalle mie monete aggiungendo il tatax debit
-						recordsForTatax.add(new TataxInterchangableRecord(new TataxRecord(movement.getUtcTime(), feeCoin, amountToExhaust, TataxOperationType.EXCHANGE_FEE)));		
+						wrkTataxInterchangableRecords.add(new TataxRecord(movement.getUtcTime(), feeCoin, amountToExhaust, TataxOperationType.EXCHANGE_FEE));		
 
 					}
 				}
 			}
+			recordsForTatax.addAll(wrkTataxInterchangableRecords);
+			
+//			for (TataxInterchangableRecord tataxInterchangableRecord : wrkTataxInterchangableRecords) {
+//				TataxRecord chosenRecord = tataxInterchangableRecord.getChosenRecord();
+//				String symbol = chosenRecord.getSymbol();
+//				balance.putIfAbsent(symbol, BigDecimal.ZERO);
+//				String nonChosenSymbol = tataxInterchangableRecord.getNonChosenRecord()!=null  ? tataxInterchangableRecord.getNonChosenRecord().getSymbol():null;
+//				if(nonChosenSymbol!=null) balance.putIfAbsent(nonChosenSymbol, BigDecimal.ZERO);
+//				
+//				BigDecimal balanceChange = balance.get(chosenRecord.getSymbol()).add(
+//						chosenRecord.getMovementType().getDoNegateAmount() ? 
+//								chosenRecord.getQuantity().negate():
+//									chosenRecord.getQuantity()
+//						);
+//				if(balanceChange.add(BigDecimal.valueOf(0.0000000001)).compareTo(BigDecimal.ZERO)>=0) {
+//					balance.put(symbol, balanceChange);
+//				} else {
+//					throw new RuntimeException();
+//				}
+//			}
+			
+			
 			//CoherenceChecks
 			checkBalances();	
 		}
@@ -470,86 +463,27 @@ public abstract class MarginAccount extends Account {
 			ok=true;
 			Map<String,BigDecimal> balance = new HashMap<String, BigDecimal>();
 			for (int i = 0; i < recordsForTatax.size(); i++) {
-				TataxInterchangableRecord tataxInterchangableRecord = recordsForTatax.get(i);
-				TataxRecord chosenRecord = tataxInterchangableRecord.getChosenRecord();
-				String symbol = chosenRecord.getSymbol();
+				TataxRecord tataxRecord = recordsForTatax.get(i);
+				String symbol = tataxRecord.getSymbol();
 				balance.putIfAbsent(symbol, BigDecimal.ZERO);
-				String nonChosenSymbol = tataxInterchangableRecord.getNonChosenRecord()!=null  ? tataxInterchangableRecord.getNonChosenRecord().getSymbol():null;
-				if(nonChosenSymbol!=null) balance.putIfAbsent(nonChosenSymbol, BigDecimal.ZERO);
-				
-				BigDecimal balanceChange = balance.get(chosenRecord.getSymbol()).add(
-						chosenRecord.getMovementType().getDoNegateAmount() ? 
-								chosenRecord.getQuantity().negate():
-									chosenRecord.getQuantity()
+			
+				BigDecimal balanceChange = balance.get(tataxRecord.getSymbol()).add(
+						tataxRecord.getMovementType().getDoNegateAmount() ? 
+								tataxRecord.getQuantity().negate():
+									tataxRecord.getQuantity()
 						);
-				balance.put(symbol, balanceChange);
-				//TODO TODO TODO devi gestire bene i balance a mano a mano che vai a ritroso
-				if(balance.get(symbol).add(BigDecimal.valueOf(0.0000000001)).compareTo(BigDecimal.ZERO)<0) {
-					ok = false;
-					BigDecimal amountToRecover = balance.get(symbol);
-					if(tataxInterchangableRecord.getRecord2()!=null) {
-						TataxInterchangableRecord dependent = tataxInterchangableRecord.getDependentRecord();
-						TataxRecord recordForBalancheChangeCheck = tataxInterchangableRecord.isCredit() ? tataxInterchangableRecord.getChosenRecord() : tataxInterchangableRecord.getNonChosenRecord();
-						BigDecimal balanceIfChange = balance.get(recordForBalancheChangeCheck.getSymbol());
-						balanceIfChange = balanceIfChange.subtract(recordForBalancheChangeCheck.getQuantity());
-						if(dependent!=null) {
-							balanceIfChange = balanceIfChange.subtract(recordForBalancheChangeCheck.getQuantity());
+				if(balanceChange.compareTo(BigDecimal.ZERO)>=0) {
+					balance.put(symbol, balanceChange);
+				} else {
+					ok=false;
+					if(balanceChange.add(CommonDef.acceptedError).compareTo(BigDecimal.ZERO)>=0) {
+						if(tataxRecord.getMovementType().getDoNegateAmount()) {
+							tataxRecord.setQuantity(tataxRecord.getQuantity().add(balanceChange));
 						}
-						if(balanceIfChange.compareTo(BigDecimal.ZERO)>=0) {
-							balance.put(recordForBalancheChangeCheck.getSymbol(), balanceIfChange);
-							tataxInterchangableRecord.changeChose(true);
-							amountToRecover = amountToRecover.add(tataxInterchangableRecord.getNonChosenRecord().getQuantity());
-						} 
-						
-					}else {
-						TataxRecord onlyRecord = tataxInterchangableRecord.getRecord1();
-						BigDecimal balanceChange2 = balance.get(onlyRecord.getSymbol()).subtract(
-								onlyRecord.getMovementType().getDoNegateAmount() ? 
-										onlyRecord.getQuantity().negate():
-											onlyRecord.getQuantity()
-								);
-						balance.put(onlyRecord.getSymbol(), balanceChange2);
-					}
-					if(amountToRecover.compareTo(BigDecimal.ZERO)>=0) {
 						break;
-					}
-
-					for (int j = i-1; j >=0; j--) {
-						TataxInterchangableRecord tataxInterchangableRecord2 = recordsForTatax.get(j);
-						if(tataxInterchangableRecord2.getRecord2()==null) {
-							TataxRecord onlyRecord = tataxInterchangableRecord.getRecord1();
-							BigDecimal balanceChange2 = balance.get(onlyRecord.getSymbol()).subtract(
-									onlyRecord.getMovementType().getDoNegateAmount() ? 
-											onlyRecord.getQuantity().negate():
-												onlyRecord.getQuantity()
-									);
-							balance.put(onlyRecord.getSymbol(), balanceChange2);
-						} else {
-							TataxInterchangableRecord dependent = tataxInterchangableRecord2.getDependentRecord();
-							TataxRecord recordForBalancheChangeCheck = tataxInterchangableRecord2.isCredit() ? tataxInterchangableRecord2.getChosenRecord() : tataxInterchangableRecord2.getNonChosenRecord();
-							BigDecimal balanceIfChange = balance.get(recordForBalancheChangeCheck.getSymbol());
-							
-							balanceIfChange = balanceIfChange.subtract(recordForBalancheChangeCheck.getQuantity());
-							if(dependent!=null) {
-								balanceIfChange = balanceIfChange.subtract(recordForBalancheChangeCheck.getQuantity());
-							}
-							
-							if(balanceIfChange.compareTo(BigDecimal.ZERO)>=0) {
-								balance.put(recordForBalancheChangeCheck.getSymbol(), balanceIfChange);
-								tataxInterchangableRecord2.changeChose(true);
-								BigDecimal recoveredQuantity = tataxInterchangableRecord2.isCredit() ? tataxInterchangableRecord2.getChosenRecord().getQuantity() :tataxInterchangableRecord2.getNonChosenRecord().getQuantity(); 
-								amountToRecover = amountToRecover.add(recoveredQuantity);
-							}
-							
-							if(amountToRecover.compareTo(BigDecimal.ZERO)>=0) {
-								break;
-							}
-						}
-					}
-					if(amountToRecover.compareTo(BigDecimal.ZERO)<0) {
+					} else {
 						throw new RuntimeException();
 					}
-					break;
 				}
 			}
 
@@ -572,12 +506,6 @@ public abstract class MarginAccount extends Account {
 	}
 
 	public List<TataxRecord> getTataxRecords() {
-		return recordsForTatax.stream().map(ttir -> {
-			if(ttir.isChoose2()) {
-				return ttir.getRecord2();
-			}else {
-				return ttir.getRecord1();
-			}
-		}).collect(Collectors.toList());
+		return recordsForTatax;
 	}
 }

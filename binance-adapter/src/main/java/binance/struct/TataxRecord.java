@@ -1,6 +1,7 @@
 package binance.struct;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -15,13 +16,17 @@ public class TataxRecord {
 	private String symbolCountervalue = "";
 	private BigDecimal userCountervalue;
 	private String userSymbolCountervalue = "";
-	private String sourceCountervalue = "";
+	private BigDecimal sourceCountervalue;
 	private String sourceSymbolCountervalue = "";
+	
+	//Variable for app control
+	private boolean ignore = false;
 
 
 	private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
 	public TataxRecord() {};
+	
 	
 	public TataxRecord(LocalDateTime timeStamp, String symbol, BigDecimal quantity, TataxOperationType tataxOperationType) {
 		this.timeStamp=timeStamp;
@@ -37,8 +42,26 @@ public class TataxRecord {
 		this.movementType = tataxOperationType;
 		this.countervalue=counterValue;
 		this.symbolCountervalue=symbolCounterValue;
+		this.userCountervalue=counterValue;
+		this.userSymbolCountervalue=symbolCounterValue;
+		this.sourceCountervalue=counterValue;
+		this.sourceSymbolCountervalue=symbolCounterValue;
 	}
 	
+	public TataxRecord(LocalDateTime timeStamp, String symbol, BigDecimal quantity, TataxOperationType tataxOperationType, BigDecimal counterValue, String symbolCounterValue, boolean ignore) {
+		this.timeStamp=timeStamp;
+		this.symbol = symbol;
+		this.quantity = quantity;
+		this.movementType = tataxOperationType;
+		this.countervalue=counterValue;
+		this.symbolCountervalue=symbolCounterValue;
+		this.userCountervalue=counterValue;
+		this.userSymbolCountervalue=symbolCounterValue;
+		this.sourceCountervalue=counterValue;
+		this.sourceSymbolCountervalue=symbolCounterValue;
+		this.ignore=true;
+	}
+		
 	public TataxRecord(BinanceHistoryRecord binanceHistoryRecord) {
 		this.symbol=binanceHistoryRecord.getCoin();
 		this.timeStamp=binanceHistoryRecord.getUtcTime();
@@ -110,7 +133,7 @@ public class TataxRecord {
 		return userSymbolCountervalue;
 	}
 
-	public String getSourceCountervalue() {
+	public BigDecimal getSourceCountervalue() {
 		return sourceCountervalue;
 	}
 
@@ -125,12 +148,12 @@ public class TataxRecord {
 	        tokenAddress, 
 	        formatter.format(timeStamp), 
 	        movementType.toString(), 
-	        quantity.toString(),
-	        countervalue == null ? "" : countervalue.toString(), 
+	        quantity.setScale(12,RoundingMode.HALF_UP).toString(),
+	        countervalue == null ? "" : countervalue.setScale(12,RoundingMode.HALF_UP).toString(), 
 	        symbolCountervalue, 
-	        userCountervalue == null ? "" : userCountervalue.toString(), 
+	        userCountervalue == null ? "" : userCountervalue.setScale(12,RoundingMode.HALF_UP).toString(), 
 	        userSymbolCountervalue,
-	        sourceCountervalue, 
+	        sourceCountervalue == null ? "" : sourceCountervalue.setScale(12,RoundingMode.HALF_UP).toString(),
 	        sourceSymbolCountervalue
 	    };
 	}
@@ -141,9 +164,20 @@ public class TataxRecord {
 				+ ", movementType=" + movementType + ", quantity=" + quantity + ", countervalue=" + countervalue
 				+ ", symbolCountervalue=" + symbolCountervalue+ "]";
 	}
-	
-	
-	
-	
+
+
+	public void setQuantity(BigDecimal quantity) {
+		this.quantity = quantity;
+	}
+
+
+	public boolean isIgnore() {
+		return ignore;
+	}
+
+
+	public void setIgnore(boolean ignore) {
+		this.ignore = ignore;
+	}	
 	
 }

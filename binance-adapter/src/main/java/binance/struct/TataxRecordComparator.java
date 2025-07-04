@@ -9,7 +9,7 @@ public class TataxRecordComparator implements Comparator<TataxRecord>{
 
 		int delta = e1.getTimeStamp().compareTo(e2.getTimeStamp());
 		if(delta==0) {
-			delta = e2.getMovementType().compareTo(e1.getMovementType());
+			delta = e1.getMovementType().compareTo(e2.getMovementType());
 		}
 		if(delta==0) {
 			delta = e2.getSymbol().compareTo(e1.getSymbol());

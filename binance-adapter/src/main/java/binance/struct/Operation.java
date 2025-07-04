@@ -16,18 +16,18 @@ public class Operation implements UtcTimedRecordWithMovement{
 	private BigDecimal amountFee;
 
 
-	private Boolean boughtIsBase;
+	private final Boolean longOperation;
 	public Operation(BinanceHistoryRecord binanceHistoryRecord) {
 		switch (binanceHistoryRecord.getOperation()) {
 		case TRANSACTION_SPEND:
-			boughtIsBase = true;
+			longOperation = true;
 			break;
 		case TRANSACTION_SOLD:
-			boughtIsBase = false;
+			longOperation = false;
 			break;
 		case CROSS_MARGIN_LIQUIDATION_SMALL_ASSET_TAKEOVER:
 			//TODO verify
-			boughtIsBase = true;
+			longOperation = true;
 			break;
 		default:
 			throw new IllegalArgumentException("Unexpected operation type for: " + binanceHistoryRecord);
@@ -86,12 +86,10 @@ public class Operation implements UtcTimedRecordWithMovement{
 		return amountBought.negate().divide(amountSold,CommonDef.BIG_DECIMAL_DIVISION_SCALE, RoundingMode.HALF_UP);
 	}
 
-	public boolean isBoughtIsBase() {
-		return boughtIsBase;
+	public boolean isLongOperation() {
+		return longOperation;
 	}
-	public void setBoughtIsBase(boolean boughtIsBase) {
-		this.boughtIsBase = boughtIsBase;
-	}
+	
 	@Override
 	public String getInCoin() {
 		return coinBought;

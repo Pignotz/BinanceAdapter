@@ -52,7 +52,7 @@ public class Position {
 			throw new RuntimeException("Incomplete Operation "+ op);
 		}
 		if(swaps.isEmpty()) { //first op
-			if(op.isBoughtIsBase()) {
+			if(op.isLongOperation()) {
 				baseCoin = op.getCoinBought();
 				quoteCoin = op.getCoinSold();
 			} else {
@@ -70,14 +70,14 @@ public class Position {
 				loanedCoin2 = quoteCoin;
 			}
 		} else {
-			if(op.isBoughtIsBase() && (!baseCoin.equals(op.getCoinBought()) || !quoteCoin.equals(op.getCoinSold()))) {
+			if(op.isLongOperation() && (!baseCoin.equals(op.getCoinBought()) || !quoteCoin.equals(op.getCoinSold()))) {
 				if(op.getCoinBought().equals("BNB")) {
 					//Use my coins to buy BNB
 					//TODO
 				} else {
 					return ADD_OPERATION_RESULT.LOOK_FOR_COMPATIBLE_POSITION;
 				}
-			} else if(!op.isBoughtIsBase() && (!baseCoin.equals(op.getCoinSold()) || !quoteCoin.equals(op.getCoinBought()))) {
+			} else if(!op.isLongOperation() && (!baseCoin.equals(op.getCoinSold()) || !quoteCoin.equals(op.getCoinBought()))) {
 				return ADD_OPERATION_RESULT.LOOK_FOR_COMPATIBLE_POSITION;
 			}
 		}
