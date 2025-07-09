@@ -11,9 +11,9 @@ public enum BinanceOperationType {
 
     TRANSACTION_SPEND("Transaction Spend",TataxOperationType.DEBIT,true),
     TRANSACTION_SOLD("Transaction Sold",TataxOperationType.DEBIT,true),
-    TRANSACTION_FEE("Transaction Fee",TataxOperationType.EXCHANGE_FEE,true),
     TRANSACTION_BUY("Transaction Buy",TataxOperationType.CREDIT,true),
     TRANSACTION_REVENUE("Transaction Revenue",TataxOperationType.CREDIT,true),   
+    TRANSACTION_FEE("Transaction Fee",TataxOperationType.EXCHANGE_FEE,true),
 
     CROSS_MARGIN_LIQUIDATION_SMALL_ASSET_TAKEOVER("Cross Margin Liquidation - Small Assets Takeover",TataxOperationType.DECIDE_BASED_ON_AMOUNT,true),
     ISOLATED_MARGIN_LIQUIDATION_FEE("Isolated Margin Liquidation - Fee", TataxOperationType.EXCHANGE_FEE,true),
@@ -22,8 +22,6 @@ public enum BinanceOperationType {
     ISOLATED_MARGIN_REPAYMENT("Isolated Margin Repayment",TataxOperationType.DEBIT,true),
 
 
-    
-    
     CASHBACK_VOUCHER("Cashback Voucher",TataxOperationType.EARN,false),
     AIRDROP_ASSETS("Airdrop Assets",TataxOperationType.AIRDROP,false),
     SIMPLE_EARN_FLEXIBLE_INTEREST("Simple Earn Flexible Interest",TataxOperationType.EARN,false),

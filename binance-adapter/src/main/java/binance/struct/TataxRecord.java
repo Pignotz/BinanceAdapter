@@ -178,6 +178,14 @@ public class TataxRecord {
 
 	public void setIgnore(boolean ignore) {
 		this.ignore = ignore;
+	}
+
+
+	public String toSimpleString() {
+		return symbol + " "+
+				(movementType.getDoNegateAmount() ? quantity.negate() : quantity)
+				+" "
+						+ movementType;
 	}	
 	
 }

@@ -86,7 +86,7 @@ public class ReadBinanceHistoryStepConfig {
 		case ISOLATED_MARGIN_REPAYMENT, MARGIN_REPAYMENT:
 			record.setUtcTime(record.getUtcTime().plusSeconds(1l));
 		break;
-		case SIMPLE_EARN_FLEXIBLE_SUBSCRIPTION:
+		case SIMPLE_EARN_FLEXIBLE_SUBSCRIPTION, SIMPLE_EARN_LOCKED_SUBSCRIPTION:
 			if(record.getChange().compareTo(BigDecimal.ZERO)>=0) {
 				throw new RuntimeException("change is greater than 0 in a subscription");
 			}

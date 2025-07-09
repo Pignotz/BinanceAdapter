@@ -2,6 +2,7 @@ package binance.model;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,20 +20,22 @@ public class CoinBalance {
 	}
 	
 	
-	public void addCoinBalanceEntry(String coin, BigDecimal amount, String counterValueCoin, BigDecimal counterValueAmount) {
+	public void addCoinBalanceEntry(LocalDateTime time, String coin, BigDecimal amount, String counterValueCoin, BigDecimal counterValueAmount) {
 
-		balanceHistory.add(0,new CoinBalanceEntry(coin, amount, counterValueCoin, counterValueAmount));
+		balanceHistory.add(0,new CoinBalanceEntry(time, coin, amount, counterValueCoin, counterValueAmount));
 		
 	}	
 	
 	public static class CoinBalanceEntry {
+		private final LocalDateTime utcTime;
 		private final String coin;
 		private BigDecimal amount;
 		private final String counterValueCoin;
 		private BigDecimal counterValueAmount;
 		
 		private BigDecimal priceOfCoin;
-		public CoinBalanceEntry(String coin, BigDecimal amount, String counterValueCoin, BigDecimal counterValueAmount) {
+		public CoinBalanceEntry(LocalDateTime time, String coin, BigDecimal amount, String counterValueCoin, BigDecimal counterValueAmount) {
+			this.utcTime=time;
 			this.coin=coin;
 			this.amount = amount;
 			this.counterValueCoin=counterValueCoin;
@@ -63,7 +66,7 @@ public class CoinBalance {
 			if(priceOfCoin==null) {
 				priceOfCoin = price;
 			}else {
-				if(priceOfCoin.compareTo(price)!=0) {
+				if(priceOfCoin.subtract(price).abs().compareTo(CommonDef.acceptedError)>0) {
 					throw new RuntimeException();
 				}
 			}
@@ -81,6 +84,10 @@ public class CoinBalance {
 		@Override
 		public String toString() {
 			return "CoinBalanceEntry bought "+ getAmount() + " " + getCoin() + " for " + getCounterValueAmount() + " " + getCounterValueCoin();
+		}
+
+		public LocalDateTime getUtcTime() {
+			return utcTime;
 		}		
 		
 		

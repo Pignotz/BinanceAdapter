@@ -78,6 +78,7 @@ public class AggregateAssignStepConfig {
 											amount = amount.add(binanceHistoryRecord.getChange());
 										}
 										BinanceHistoryRecord aggregateBinanceHistoryRecord = new BinanceHistoryRecord();
+										aggregateBinanceHistoryRecord.setUserId(e4.getValue().stream().findAny().get().getUserId());
 										aggregateBinanceHistoryRecord.setAccount(account);
 										aggregateBinanceHistoryRecord.setChange(amount);
 										aggregateBinanceHistoryRecord.setCoin(coin);
