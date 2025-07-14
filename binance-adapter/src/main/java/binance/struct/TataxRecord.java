@@ -40,10 +40,10 @@ public class TataxRecord {
 		this.symbol = symbol;
 		this.quantity = quantity;
 		this.movementType = tataxOperationType;
-		this.countervalue=counterValue;
-		this.symbolCountervalue=symbolCounterValue;
-		this.userCountervalue=counterValue;
-		this.userSymbolCountervalue=symbolCounterValue;
+//		this.countervalue=counterValue;
+//		this.symbolCountervalue=symbolCounterValue;
+//		this.userCountervalue=counterValue;
+//		this.userSymbolCountervalue=symbolCounterValue;
 		this.sourceCountervalue=counterValue;
 		this.sourceSymbolCountervalue=symbolCounterValue;
 	}

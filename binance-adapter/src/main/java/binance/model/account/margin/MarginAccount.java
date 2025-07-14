@@ -2,7 +2,6 @@ package binance.model.account.margin;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.Bidi;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,8 +17,8 @@ import binance.model.CoinBalance;
 import binance.model.CoinBalance.CoinBalanceEntry;
 import binance.model.account.Account;
 import binance.model.account.AccountType;
+import binance.prices.PriceTable;
 import binance.struct.BinanceHistoryRecord;
-import binance.struct.BinanceOperationType;
 import binance.struct.Operation;
 import binance.struct.TataxOperationType;
 import binance.struct.TataxRecord;
@@ -209,12 +208,12 @@ public abstract class MarginAccount extends Account {
 				} else {
 					coinBalanceHistoryIterator.remove(); //Lo esaurirò tutto						
 				}
-				TataxRecord credit = new TataxRecord(coinBalanceEntry.getUtcTime(),coin,availableFromPrevSwapsToUse,TataxOperationType.CREDIT, availableFromPrevSwapsToUse.multiply(previousTradePrice),coinBalanceEntry.getCounterValueCoin());
+				TataxRecord credit = new TataxRecord(coinBalanceEntry.getUtcTime(),coin,availableFromPrevSwapsToUse,TataxOperationType.CREDIT, getPriceTable().getPrice(coin, time).multiply(availableFromPrevSwapsToUse),"EUR");
 				addRecordForTatax(credit, "... credit from prev swap for fix",false, true);
 				amountToExhaust = amountToExhaust.subtract(availableFromPrevSwapsToUse);
 			}
 			if(amountToExhaust.compareTo(BigDecimal.ZERO)>0) {
-				TataxRecord fix = new TataxRecord(time, coin, amountToExhaust, TataxOperationType.CREDIT, amountToExhaust, coin);
+				TataxRecord fix = new TataxRecord(time, coin, amountToExhaust, TataxOperationType.CREDIT, getPriceTable().getPrice(coin, time).multiply(amountToExhaust), "EUR");
 				addRecordForTatax(fix, "... fix", true,true);
 				//throw new RuntimeException();
 			}
@@ -383,9 +382,9 @@ public abstract class MarginAccount extends Account {
 					//Qui gestisco l'eventuale residuo degli spostamenti delle mie coin: le tratto come trasferimenti spot da inserire in TATAX
 					BigDecimal residualAmountSold = amountToExaust;
 					if(residualAmountSold.compareTo(BigDecimal.ZERO)<0) throw new RuntimeException();
-					TataxRecord debitRecordForTatax = new TataxRecord(movement.getUtcTime().plusSeconds(1), operation.getCoinSold(), residualAmountSold, TataxOperationType.DEBIT);
+					TataxRecord debitRecordForTatax = new TataxRecord(movement.getUtcTime().plusSeconds(1), operation.getCoinSold(), residualAmountSold, TataxOperationType.DEBIT,getPriceTable().getPrice(operation.getCoinSold(), operation.getUtcTime()).multiply(residualAmountSold),"EUR");
 					//TataxRecord debitRecordForTatax2 = new TataxRecord(movement.getUtcTime(), operation.getCoinBought(), myCoinAmountSold.multiply(soldCoinPrice), TataxOperationType.DEBIT,"MyCoinsChosable");
-					TataxRecord creditRecordForTatax = new TataxRecord(movement.getUtcTime().plusSeconds(1),operation.getCoinBought(),residualAmountBought,TataxOperationType.DEPOSIT, residualAmountSold, operation.getCoinSold());
+					TataxRecord creditRecordForTatax = new TataxRecord(movement.getUtcTime().plusSeconds(1),operation.getCoinBought(),residualAmountBought,TataxOperationType.DEPOSIT, getPriceTable().getPrice(operation.getCoinBought(), movement.getUtcTime()).multiply(residualAmountBought), "EUR");
 					//TataxRecord creditRecordForTatax2 = new TataxRecord(movement.getUtcTime(),operation.getCoinSold(),myCoinAmountSold,TataxOperationType.CREDIT,"MyCoinsChosable");
 					
 					addRecordForTatax(creditRecordForTatax, "... credit", true, true);
@@ -470,5 +469,6 @@ public abstract class MarginAccount extends Account {
 		return recordsForTatax;
 	}
 
+	public abstract PriceTable getPriceTable();
 
 }
