@@ -70,6 +70,7 @@ public abstract class MarginAccount extends Account {
 			pricedCoinBalancesByCoinBoughtForProfitAndLoss.putIfAbsent(coin, new CoinBalance(coin));
 			switch (binanceHistoryRecord.getOperation()) {
 			case TRANSFER_ACCOUNT:
+			case ISOLATED_MARGIN_CREDIT_FIX:
 				if(change.compareTo(BigDecimal.ZERO)>=0) {
 					addElementToMappedList(transfersInByCoin, coin, binanceHistoryRecord);
 				}else {
@@ -231,6 +232,7 @@ public abstract class MarginAccount extends Account {
 				BigDecimal change = bhr.getChange();
 				switch (bhr.getOperation()) {
 				case TRANSFER_ACCOUNT:
+				case ISOLATED_MARGIN_CREDIT_FIX:
 					if(bhr.getChange().compareTo(BigDecimal.ZERO)>0) {
 						TataxRecord transferDepositTataxRecord =new TataxRecord(movement.getUtcTime(), coin, bhr.getChange(), TataxOperationType.DEPOSIT);
 						addRecordForTatax(transferDepositTataxRecord, "... transfer in: ", true, false);

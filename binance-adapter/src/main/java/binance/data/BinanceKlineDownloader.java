@@ -10,7 +10,7 @@ public class BinanceKlineDownloader {
     private static final List<String> symbols = Arrays.asList("BTCEUR", "ETHEUR", "BNBEUR","ATOMEUR", "SOLEUR", "EURUSDC", "EURUSDT");
 
     private static final LocalDate startDate = LocalDate.of(2022, 1, 1);
-    private static final LocalDate endDate = LocalDate.of(2024, 12, 31);
+    private static final LocalDate endDate = LocalDate.of(2025, 12, 31);
 
     private static final long ONE_DAY_MS = 24 * 60 * 60 * 1000L;
     private static final long MAX_INTERVAL = ONE_DAY_MS * 1000L; // max circa 3 anni

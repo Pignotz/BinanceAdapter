@@ -5,14 +5,16 @@ public enum BinanceOperationType {
     FIAT_DEPOSIT("Fiat Deposit",TataxOperationType.DEPOSIT, false),
    
     TRANSFER_ACCOUNT("Transfer Between Main Account/Futures and Margin Account",TataxOperationType.DECIDE_BASED_ON_AMOUNT, true),
-    
     MARGIN_LOAN("Margin Loan",TataxOperationType.CREDIT,true),
     ISOLATED_MARGIN_LOAN("Isolated Margin Loan",TataxOperationType.CREDIT,true),
 
+    
     TRANSACTION_SPEND("Transaction Spend",TataxOperationType.DEBIT,true),
     TRANSACTION_SOLD("Transaction Sold",TataxOperationType.DEBIT,true),
     TRANSACTION_BUY("Transaction Buy",TataxOperationType.CREDIT,true),
-    TRANSACTION_REVENUE("Transaction Revenue",TataxOperationType.CREDIT,true),   
+    TRANSACTION_REVENUE("Transaction Revenue",TataxOperationType.CREDIT,true), 
+    ISOLATED_MARGIN_CREDIT_FIX("Isolated Margin Credit Fix",TataxOperationType.CREDIT,true),
+
     TRANSACTION_FEE("Transaction Fee",TataxOperationType.EXCHANGE_FEE,true),
 
     CROSS_MARGIN_LIQUIDATION_SMALL_ASSET_TAKEOVER("Cross Margin Liquidation - Small Assets Takeover",TataxOperationType.DECIDE_BASED_ON_AMOUNT,true),
@@ -41,6 +43,7 @@ public enum BinanceOperationType {
     ETH_2_0_STAKING_WITHDRAWALS("ETH 2.0 Staking Withdrawals",TataxOperationType.DECIDE_BASED_ON_AMOUNT,false),
     BETH_TO_WBETH_WRAPPING("BETH to WBETH Wrapping",TataxOperationType.DECIDE_BASED_ON_AMOUNT,false),
     BNB_FEE_DEDUCTION("BNB Fee Deduction",TataxOperationType.DECIDE_BASED_ON_AMOUNT,false),
+    TAX_PAYMENT("Tax Payment",TataxOperationType.DECIDE_BASED_ON_AMOUNT,false),
    // BUY("Buy",TataxOperationType.DECIDE_BASED_ON_AMOUNT,false),
     FEE("Fee",TataxOperationType.EXCHANGE_FEE,false),
     DISTRIBUTION("Distribution",TataxOperationType.AIRDROP,false);
