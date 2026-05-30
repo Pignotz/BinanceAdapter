@@ -46,6 +46,7 @@ import binance.model.account.margin.IsolatedMarginAccount;
 import binance.model.account.spot.SpotAccount;
 import binance.prices.PriceTable;
 import binance.struct.BinanceHistoryRecord;
+import binance.struct.BinanceOperationType;
 import binance.struct.TataxRecord;
 import binance.struct.TataxRecordComparator;
 import jakarta.annotation.PostConstruct;
@@ -227,7 +228,10 @@ public class BinanceHistoryJobConfig {
 			List<TataxRecord> tataxAdaptedRecords = binanceHistoryRecords.stream().sorted(comparator).map(e -> new TataxRecord(e)).collect(Collectors.toList());
 			writeFile(subFolder, fileName, tataxAdaptedRecords);
 		} else {
-			binanceHistoryRecords = binanceHistoryRecords.stream().sorted(comparator).collect(Collectors.toList());
+			binanceHistoryRecords = binanceHistoryRecords
+					.stream()
+					.filter(e -> !e.getOperation().equals(BinanceOperationType.TRANSFER_ACCOUNT))
+					.sorted(comparator).collect(Collectors.toList());
 			writeFile2(subFolder, fileName, binanceHistoryRecords);
 		}
 
