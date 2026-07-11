@@ -67,7 +67,7 @@ public class AggregateAssignStepConfig {
 						List<BinanceHistoryRecord> aggregateList = new ArrayList<BinanceHistoryRecord>();
 						for (Entry<String, Map<LocalDateTime, Map<BinanceOperationType, Map<String, List<BinanceHistoryRecord>>>>> e1 : aggregateMap.entrySet()) {
 							String account = e1.getKey();
-							for (Entry<LocalDateTime, Map<BinanceOperationType, Map<String, List<BinanceHistoryRecord>>>> e2 : e1.getValue().entrySet()) {
+							for (Entry<LocalDateTime, Map<BinanceOperationType, Map<String, List<BinanceHistoryRecord>>>> e2 : e1.getValue().entrySet().stream().sorted((a, b)-> a.getKey().compareTo(b.getKey())).collect(Collectors.toList())) {
 								LocalDateTime utcTime = e2.getKey();
 								for (Entry<BinanceOperationType, Map<String, List<BinanceHistoryRecord>>> e3 : e2.getValue().entrySet()) {
 									BinanceOperationType operation = e3.getKey();

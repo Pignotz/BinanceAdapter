@@ -5,8 +5,8 @@ public enum BinanceOperationType {
     FIAT_DEPOSIT("Fiat Deposit",TataxOperationType.DEPOSIT, false),
    
     TRANSFER_ACCOUNT("Transfer Between Main Account/Futures and Margin Account",TataxOperationType.DECIDE_BASED_ON_AMOUNT, true),
-    MARGIN_LOAN("Margin Loan",TataxOperationType.CREDIT,true),
-    ISOLATED_MARGIN_LOAN("Isolated Margin Loan",TataxOperationType.CREDIT,true),
+    MARGIN_LOAN("Margin Loan",TataxOperationType.LOAN,true),
+    ISOLATED_MARGIN_LOAN("Isolated Margin Loan",TataxOperationType.LOAN,true),
 
     
     TRANSACTION_SPEND("Transaction Spend",TataxOperationType.DEBIT,true),
@@ -20,8 +20,8 @@ public enum BinanceOperationType {
     CROSS_MARGIN_LIQUIDATION_SMALL_ASSET_TAKEOVER("Cross Margin Liquidation - Small Assets Takeover",TataxOperationType.DECIDE_BASED_ON_AMOUNT,true),
     ISOLATED_MARGIN_LIQUIDATION_FEE("Isolated Margin Liquidation - Fee", TataxOperationType.EXCHANGE_FEE,true),
 
-    MARGIN_REPAYMENT("Margin Repayment",TataxOperationType.DEBIT,true),
-    ISOLATED_MARGIN_REPAYMENT("Isolated Margin Repayment",TataxOperationType.DEBIT,true),
+    MARGIN_REPAYMENT("Margin Repayment",TataxOperationType.LOAN_REPAYMENT,true),
+    ISOLATED_MARGIN_REPAYMENT("Isolated Margin Repayment",TataxOperationType.LOAN_REPAYMENT,true),
 
 
     CASHBACK_VOUCHER("Cashback Voucher",TataxOperationType.EARN,false),

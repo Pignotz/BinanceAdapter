@@ -3,12 +3,21 @@ package binance.job.steps;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalField;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.StepExecutionListener;
+import org.springframework.batch.core.annotation.AfterStep;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
@@ -58,8 +67,22 @@ public class ReadBinanceHistoryStepConfig {
 				.reader(multiFileReader())
 				.processor(this::processRecord)
 				.writer(chunk -> chunk.forEach(e -> binanceHistoryRecordList.add(e)))
+				.listener(new StepExecutionListener() {
+					@Override
+					public ExitStatus afterStep(StepExecution stepExecution) {
+						List<BinanceHistoryRecord> modifiedFilteredRecords = 
+							binanceHistoryRecordList.stream()
+								.sorted()
+								.map(r -> modifyAndFilterRecord(r)).filter(r -> r!=null).collect(Collectors.toList());
+						binanceHistoryRecordList.clear();
+						binanceHistoryRecordList.addAll(modifiedFilteredRecords);
+						
+						return StepExecutionListener.super.afterStep(stepExecution);
+					}
+				})
 				.build();
 	}
+	
 
 	/**
 	 * Multi-file reader to read all Binance history CSV files in order
@@ -71,21 +94,70 @@ public class ReadBinanceHistoryStepConfig {
 		multiReader.setDelegate(csvReader());
 		return multiReader;
 	}
+	public BinanceHistoryRecord processRecord(BinanceHistoryRecord record) {
+		return record;
+	}
 
+	
+	
+	private String lastSoldCoin;
+	private String lastBoughtCoin;
+	private LocalDateTime lastUtcTime;
+	
+	private List<BinanceHistoryRecord> lastInDoubtSellBhrs;
+	
 	/**
 	 * Processor - modify records if needed (e.g., clean data, apply transformations)
 	 */
-	public BinanceHistoryRecord processRecord(BinanceHistoryRecord record) {
-		logger.debug("processing {}",record);
+	public BinanceHistoryRecord modifyAndFilterRecord(BinanceHistoryRecord record) {
+		logger.info("modifyAndFilter {}",record);
 		if(record.getCoin().equals("LDBTC"))return null;
 
 		switch (record.getOperation()) {
 		case ISOLATED_MARGIN_LOAN, MARGIN_LOAN:
 			record.setUtcTime(record.getUtcTime().minusSeconds(1l));
-		break;
+			record.setUtcTime(record.getUtcTime().with(ChronoField.SECOND_OF_MINUTE, 0));
+			break;
+		case TRANSACTION_SOLD, TRANSACTION_SPEND:
+			if(!record.getCoin().equals(lastSoldCoin) 
+					|| 
+					(lastUtcTime!=null && record.getUtcTime().get(ChronoField.MINUTE_OF_DAY)!=lastUtcTime.get(ChronoField.MINUTE_OF_DAY))
+				){
+				lastUtcTime = record.getUtcTime();
+				lastSoldCoin=record.getCoin();
+				lastBoughtCoin=null;
+				lastInDoubtSellBhrs=null;
+			} else {
+				lastInDoubtSellBhrs=lastInDoubtSellBhrs==null ? new ArrayList<BinanceHistoryRecord>() : lastInDoubtSellBhrs;
+				lastInDoubtSellBhrs.add(record);
+			}
+			break;
+		case TRANSACTION_BUY, TRANSACTION_REVENUE:
+			if(!record.getCoin().equals(lastBoughtCoin)) {
+				lastBoughtCoin=record.getCoin();
+				if(lastInDoubtSellBhrs!=null && !lastInDoubtSellBhrs.isEmpty()) {
+					lastUtcTime=lastInDoubtSellBhrs.get(lastInDoubtSellBhrs.size()-1).getUtcTime();
+					lastInDoubtSellBhrs.clear();
+				}
+			}else {
+				if(lastInDoubtSellBhrs!=null) {
+					lastInDoubtSellBhrs.stream().forEach(r-> r.setUtcTime(lastUtcTime));
+					lastInDoubtSellBhrs.clear();
+				}
+				record.setUtcTime(lastUtcTime);
+			}
+			//record.setUtcTime(record.getUtcTime().with(ChronoField.SECOND_OF_MINUTE, 0));
+			break;
+		case TRANSACTION_FEE:
+			if(lastUtcTime!=null) {
+				record.setUtcTime(lastUtcTime);
+			}
+			break;
+		
 		case ISOLATED_MARGIN_REPAYMENT, MARGIN_REPAYMENT:
-			record.setUtcTime(record.getUtcTime().plusSeconds(1l));
-		break;
+			//record.setUtcTime(record.getUtcTime().with(ChronoField.SECOND_OF_MINUTE, 0));
+			record.setUtcTime(record.getUtcTime().plusSeconds(2l));
+			break;
 		case SIMPLE_EARN_FLEXIBLE_SUBSCRIPTION, SIMPLE_EARN_LOCKED_SUBSCRIPTION:
 			if(record.getChange().compareTo(BigDecimal.ZERO)>=0) {
 				throw new RuntimeException("change is greater than 0 in a subscription");
@@ -111,7 +183,7 @@ public class ReadBinanceHistoryStepConfig {
 				realTimeAprRecordToReturn.setCoin(record.getCoin());
 				realTimeAprRecordToReturn.setOperation(BinanceOperationType.SIMPLE_EARN_FLEXIBLE_INTEREST);
 				realTimeAprRecordToReturn.setUserId(record.getUserId());
-				realTimeAprRecordToReturn.setUtcTime(record.getUtcTime());
+				realTimeAprRecordToReturn.setUtcTime(record.getUtcTime().with(ChronoField.SECOND_OF_MINUTE, 0));
 				return realTimeAprRecordToReturn;
 			}else {
 				realTimeAprAdjuster.put(record.getCoin(), startingValue.add(record.getChange().negate()));
@@ -185,8 +257,9 @@ public class ReadBinanceHistoryStepConfig {
 		// Customize the FieldSetMapper to parse LocalDateTime
 		lineMapper.setLineTokenizer(tokenizer);
 		lineMapper.setFieldSetMapper(fieldSetMapper);
-
+		
 		reader.setLineMapper(lineMapper);
+
 		return reader;
 	}
 }

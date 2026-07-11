@@ -53,19 +53,19 @@ public class ValidateStepConfig {
 					public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
 						binanceHistoryRecordList.stream().forEach(r -> {
 							switch (r.getOperation().getTataxMapping()) {
-							case WITHDRAWAL, DEBIT,  EXCHANGE_FEE:
+							case WITHDRAWAL, DEBIT,  EXCHANGE_FEE, LOAN_REPAYMENT:
 								if(r.getChange().compareTo(BigDecimal.ZERO)>=0) {
 									logger.error("Expected less than zero change for: {}",r);
 									throw new RuntimeException();
 								}
 							break;
-							case AIRDROP,CREDIT,DEPOSIT,EARN :
+							case AIRDROP,CREDIT,DEPOSIT,EARN, LOAN :
 								if(r.getChange().compareTo(BigDecimal.ZERO)<0) {
 									logger.error("Expected more than or equal to zero change for: {}",r);
 									throw new RuntimeException();
 								}
 							break;
-							case DECIDE_BASED_ON_AMOUNT :
+							case DECIDE_BASED_ON_AMOUNT:
 								break;
 							default:
 								throw new IllegalArgumentException("Unexpected value: " + r.getOperation().getTataxMapping());

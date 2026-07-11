@@ -87,7 +87,20 @@ public class BinanceHistoryJobConfig {
 				.next(aggregateAndAssignToAccountsStepConfig.getAggregateAndAssignToAccountStep())
 				.next(computePlusMinusStepConfig.getComputePlusMinusStep())
 				.next(adaptAndWriteStep())
+				.next(crossCheckStep())
 				.build();
+	}
+	
+	@Bean
+	public Step crossCheckStep() {
+		return new StepBuilder("processStep", jobRepository)
+				.tasklet(new Tasklet() {
+					@Override
+					public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
+						
+						return null;
+					}
+				},platformTransactionManager).build();
 	}
 
 
@@ -136,6 +149,7 @@ public class BinanceHistoryJobConfig {
 							}
 						});
 						//SPOT
+						spotAccount.aggregate();
 						recordsPerYear = spotAccount.getRecords().stream().collect(Collectors.groupingBy(e -> e.getUtcTime().getYear()));
 						recordsPerYear.entrySet().forEach(entry -> {
 							try {
@@ -169,6 +183,7 @@ public class BinanceHistoryJobConfig {
 								throw new RuntimeException(e1);
 							}
 						});
+						crossMarginAccount.aggregateTataxRecords(true);
 						Map<Integer, List<TataxRecord>> crossMarginTataxRecords = crossMarginAccount.getTataxRecords().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
 						crossMarginTataxRecords.entrySet().stream().forEach(entry -> {
 							try {
@@ -189,6 +204,7 @@ public class BinanceHistoryJobConfig {
 								throw new RuntimeException(e1);
 							}
 						});
+						isolatedMarginAccount.aggregateTataxRecords(true);
 						Map<Integer, List<TataxRecord>> isolatedMarginTataxRecords = isolatedMarginAccount.getTataxRecords().stream().collect(Collectors.groupingBy(r->r.getTimeStamp().getYear()));
 						isolatedMarginTataxRecords.entrySet().stream().forEach(entry -> {
 							try {
@@ -217,14 +233,18 @@ public class BinanceHistoryJobConfig {
 			})
 			.reduce(BigDecimal.ZERO, BigDecimal::add);
 			logger.info("{} - tot profit or loss = {}",fileName, totProfitOrLoss);
-		}
-
-		
+		}	
 	}
 
 	private void writeFileBinanceComparator(String subFolder, String fileName, List<BinanceHistoryRecord> binanceHistoryRecords, Comparator<BinanceHistoryRecord> comparator, boolean adapt) throws IOException {
 
 		if(adapt) {
+			binanceHistoryRecords.stream()
+			.forEach(r -> {
+				if(r.getOperation().equals(BinanceOperationType.ISOLATED_MARGIN_CREDIT_FIX)) {
+					r.setOperation(BinanceOperationType.SIMPLE_EARN_FLEXIBLE_INTEREST);
+				}
+			});
 			List<TataxRecord> tataxAdaptedRecords = binanceHistoryRecords.stream().sorted(comparator).map(e -> new TataxRecord(e)).collect(Collectors.toList());
 			writeFile(subFolder, fileName, tataxAdaptedRecords);
 		} else {

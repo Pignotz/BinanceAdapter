@@ -5,7 +5,9 @@ public enum TataxOperationType {
 	IGNORE(null),
 	DECIDE_BASED_ON_AMOUNT(null),
 	DEPOSIT(false),
+	LOAN(false),
 	CREDIT(false),
+	PROFIT(false),
 	//FUNDING_FEE,
 	//STAKING,
 	//FUNDING_FEE_CREDIT,
@@ -19,6 +21,8 @@ public enum TataxOperationType {
 	//DONATION_SENT,
 	DEBIT(true),
 	EXCHANGE_FEE(true),
+	LOSS(true),
+	LOAN_REPAYMENT(true),
 	WITHDRAWAL(true);
 	//FUNDING_FEE_DEBIT,
 	//BLOCKCHAIN_FEE,

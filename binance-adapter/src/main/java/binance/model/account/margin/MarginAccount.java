@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.Logger;
@@ -39,7 +40,7 @@ public abstract class MarginAccount extends Account {
 	Map<String,BigDecimal> balance = new HashMap<String, BigDecimal>();
 
 	private boolean addPAndLToTataxRecords = true;
-	
+
 	public MarginAccount(AccountType accountType, Logger logger) {
 		super(accountType, logger);
 		recordsForTatax = new ArrayList<TataxRecord>();
@@ -348,7 +349,7 @@ public abstract class MarginAccount extends Account {
 									throw new RuntimeException("Profit can't be negative value is: " + profitInPrevSold.toString());
 								}
 								BigDecimal profitInPrevBought =  profitInPrevSold.divide(previousTradePrice,CommonDef.BIG_DECIMAL_DIVISION_SCALE, RoundingMode.HALF_UP);
-								TataxRecord profitTataxRecord = new TataxRecord(operation.getUtcTime(),previouslyBoughtCoin,profitInPrevBought,TataxOperationType.CREDIT,BigDecimal.valueOf(0),"EUR");
+								TataxRecord profitTataxRecord = new TataxRecord(operation.getUtcTime(),previouslyBoughtCoin,profitInPrevBought,TataxOperationType.PROFIT,BigDecimal.valueOf(0),"EUR");
 
 								profitAndLosses.add(profitTataxRecord);
 								profitAndLossesWrk.add(profitTataxRecord);
@@ -360,14 +361,14 @@ public abstract class MarginAccount extends Account {
 									throw new RuntimeException("Loss can't be positive value is: "+ lossInSoldCoin.toString());
 								}
 								BigDecimal lossInBoughtCoin = lossInSoldCoin.divide(previousTradePrice,CommonDef.BIG_DECIMAL_DIVISION_SCALE, RoundingMode.HALF_UP);
-								TataxRecord lossTataxRecord = new TataxRecord(operation.getUtcTime().plusNanos(1), previouslyBoughtCoin, lossInBoughtCoin.negate(), TataxOperationType.DEBIT,BigDecimal.valueOf(0),"EUR");
+								TataxRecord lossTataxRecord = new TataxRecord(operation.getUtcTime().plusNanos(1), previouslyBoughtCoin, lossInBoughtCoin.negate(), TataxOperationType.LOSS,BigDecimal.valueOf(0),"EUR");
 								profitAndLosses.add(lossTataxRecord);
 								profitAndLossesWrk.add(lossTataxRecord);
 							}							
 						}
 					}
 					if(addPAndLToTataxRecords) {
-				
+
 						for (TataxRecord profitOrLoss : profitAndLossesWrk) {
 							if(profitOrLoss.getMovementType().equals(TataxOperationType.CREDIT)) {
 								addRecordForTatax(profitOrLoss, "... profit",true,false);	
@@ -388,7 +389,7 @@ public abstract class MarginAccount extends Account {
 					//TataxRecord debitRecordForTatax2 = new TataxRecord(movement.getUtcTime(), operation.getCoinBought(), myCoinAmountSold.multiply(soldCoinPrice), TataxOperationType.DEBIT,"MyCoinsChosable");
 					TataxRecord creditRecordForTatax = new TataxRecord(movement.getUtcTime().plusSeconds(1),operation.getCoinBought(),residualAmountBought,TataxOperationType.DEPOSIT, getPriceTable().getPrice(operation.getCoinBought(), movement.getUtcTime()).multiply(residualAmountBought), "EUR");
 					//TataxRecord creditRecordForTatax2 = new TataxRecord(movement.getUtcTime(),operation.getCoinSold(),myCoinAmountSold,TataxOperationType.CREDIT,"MyCoinsChosable");
-					
+
 					addRecordForTatax(creditRecordForTatax, "... credit", true, true);
 
 					List<CoinBalanceEntry> coinBalanceHistory = pricedCoinBalancesByCoinBoughtForProfitAndLoss.get(creditRecordForTatax.getSymbol()).getBalanceHistory();
@@ -472,5 +473,33 @@ public abstract class MarginAccount extends Account {
 	}
 
 	public abstract PriceTable getPriceTable();
+
+	public void aggregateTataxRecords(boolean doNothing) {
+		if(!doNothing) {
+			Map<String,Map<LocalDateTime,Map<TataxOperationType,Map<String,List<TataxRecord>>>>> aggregateMap = recordsForTatax.stream().collect(Collectors.groupingBy(r->"",Collectors.groupingBy(r->r.getTimeStamp(),Collectors.groupingBy(r -> r.getMovementType(),Collectors.groupingBy(r -> r.getSymbol())))));
+			List<TataxRecord> aggregateList = new ArrayList<TataxRecord>();
+			for (Entry<String, Map<LocalDateTime, Map<TataxOperationType, Map<String, List<TataxRecord>>>>> e1 : aggregateMap.entrySet()) {
+				String account = e1.getKey();
+				for (Entry<LocalDateTime, Map<TataxOperationType, Map<String, List<TataxRecord>>>> e2 : e1.getValue().entrySet().stream().sorted((a, b)-> a.getKey().compareTo(b.getKey())).collect(Collectors.toList())) {
+					LocalDateTime utcTime = e2.getKey();
+					for (Entry<TataxOperationType, Map<String, List<TataxRecord>>> e3 : e2.getValue().entrySet()) {
+						TataxOperationType operation = e3.getKey();
+						for (Entry<String, List<TataxRecord>> e4 : e3.getValue().entrySet()) {
+							String coin = e4.getKey();
+							BigDecimal amount = BigDecimal.ZERO;
+							for (TataxRecord tataxRecord: e4.getValue()) {
+								amount = amount.add(tataxRecord.getQuantity());
+							}
+							TataxRecord mergedTataxRecord = new TataxRecord(utcTime, coin, amount, operation);
+							aggregateList.add(mergedTataxRecord);
+						}
+					}
+				}
+			}
+			recordsForTatax.clear();
+			aggregateList = aggregateList.stream().filter(r -> r.getQuantity().compareTo(BigDecimal.ZERO)!=0).collect(Collectors.toList());
+			recordsForTatax.addAll(aggregateList);
+		}
+	}
 
 }
